@@ -16,6 +16,8 @@
 
 package com.android.libraries.tv.tvsystem.wifi;
 
+import static android.net.wifi.SoftApConfiguration.SECURITY_TYPE_WPA2_PSK;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
@@ -66,7 +68,7 @@ public final class TvWifiManager {
             new android.net.wifi.SoftApConfiguration.Builder()
                 .setBssid(config.getBssid())
                 .setSsid(config.getSsid())
-                .setWpa2Passphrase(config.getWpa2Passphrase())
+                .setPassphrase(config.getWpa2Passphrase(), SECURITY_TYPE_WPA2_PSK)
                 .build();
         mWifiManager.startLocalOnlyHotspot(frameworkConfig, executor, callback);
     }
