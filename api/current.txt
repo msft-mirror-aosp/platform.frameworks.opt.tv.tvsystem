@@ -1,0 +1,29 @@
+// Signature format: 2.0
+package com.android.libraries.tv.tvsystem.display {
+
+  public final class DeviceProductInfo {
+    ctor public DeviceProductInfo(String, String, String, Integer, com.android.libraries.tv.tvsystem.display.DeviceProductInfo.ManufactureDate);
+    method public com.android.libraries.tv.tvsystem.display.DeviceProductInfo.ManufactureDate getManufactureDate();
+    method public String getManufacturerPnpId();
+    method public Integer getModelYear();
+    method public String getName();
+    method public String getProductId();
+  }
+
+  public static class DeviceProductInfo.ManufactureDate {
+    ctor public DeviceProductInfo.ManufactureDate(Integer, Integer);
+    method public Integer getWeek();
+    method public Integer getYear();
+  }
+
+  public final class DisplayCompatUtil {
+    method public static com.android.libraries.tv.tvsystem.display.DeviceProductInfo getDeviceProductInfo(android.view.Display);
+    method public static boolean isMinimalPostProcessingSupported(android.view.Display);
+  }
+
+  public final class WindowCompatUtil {
+    method public static void setPreferMinimalPostProcessing(android.view.Window, boolean);
+  }
+
+}
+
