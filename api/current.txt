@@ -27,3 +27,28 @@ package com.android.libraries.tv.tvsystem.display {
 
 }
 
+package com.android.libraries.tv.tvsystem.user {
+
+  public interface ITvUserManager {
+    method @Nullable public android.os.UserHandle createManagedProfile(@NonNull String, @Nullable String[]) throws android.os.UserManager.UserOperationException;
+    method @Nullable public android.graphics.Bitmap getUserIcon();
+    method @NonNull public String getUserName();
+    method @NonNull public java.util.List<android.os.UserHandle> getUserProfiles(boolean);
+    method public boolean isManagedProfile();
+    method public void setUserIcon(@NonNull android.graphics.Bitmap);
+    method public void setUserName(@Nullable String);
+  }
+
+  public final class TvUserManager implements com.android.libraries.tv.tvsystem.user.ITvUserManager {
+    ctor public TvUserManager(android.content.Context);
+    method public android.os.UserHandle createManagedProfile(@NonNull String, @Nullable String[]);
+    method @Nullable public android.graphics.Bitmap getUserIcon();
+    method @NonNull public String getUserName();
+    method @NonNull public java.util.List<android.os.UserHandle> getUserProfiles(boolean);
+    method public boolean isManagedProfile();
+    method public void setUserIcon(@NonNull android.graphics.Bitmap);
+    method public void setUserName(@Nullable String);
+  }
+
+}
+
