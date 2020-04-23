@@ -52,6 +52,9 @@ public final class DisplayCompatUtil {
         DisplayInfo displayInfo = new DisplayInfo();
         display.getDisplayInfo(displayInfo);
         android.hardware.display.DeviceProductInfo info = displayInfo.deviceProductInfo;
+        if (info == null) {
+            return null;
+        }
         DeviceProductInfo.ManufactureDate manufactureDate;
         if (info.getManufactureDate() == null) {
             manufactureDate = null;
