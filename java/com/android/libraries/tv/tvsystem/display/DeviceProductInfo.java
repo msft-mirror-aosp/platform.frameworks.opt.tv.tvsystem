@@ -16,6 +16,7 @@
 
 package com.android.libraries.tv.tvsystem.display;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -29,18 +30,21 @@ public final class DeviceProductInfo {
     private final String mProductId;
     private final Integer mModelYear;
     private final ManufactureDate mManufactureDate;
+    private final int[] mRelativeAddress;
 
     public DeviceProductInfo(
             String name,
             String manufacturerPnpId,
             String productId,
             Integer modelYear,
-            ManufactureDate manufactureDate) {
+            ManufactureDate manufactureDate,
+            int[] relativeAddress) {
         this.mName = name;
         this.mManufacturerPnpId = manufacturerPnpId;
         this.mProductId = productId;
         this.mModelYear = modelYear;
         this.mManufactureDate = manufactureDate;
+        this.mRelativeAddress = relativeAddress;
     }
 
     /**
@@ -80,6 +84,14 @@ public final class DeviceProductInfo {
         return mManufactureDate;
     }
 
+    /**
+     * @return Relative address in the display network. For example, for HDMI connected devices this
+     * can be its physical address. Each component of the address is in the range [0, 255].
+     */
+    public int[] getRelativeAddress() {
+        return mRelativeAddress;
+    }
+
     @Override
     public String toString() {
         return "DeviceProductInfo{"
@@ -93,6 +105,8 @@ public final class DeviceProductInfo {
                 + mModelYear
                 + ", manufactureDate="
                 + mManufactureDate
+                + ", relativeAddress="
+                + Arrays.toString(mRelativeAddress)
                 + '}';
     }
 
@@ -105,12 +119,14 @@ public final class DeviceProductInfo {
                 && Objects.equals(mManufacturerPnpId, that.mManufacturerPnpId)
                 && Objects.equals(mProductId, that.mProductId)
                 && Objects.equals(mModelYear, that.mModelYear)
-                && Objects.equals(mManufactureDate, that.mManufactureDate);
+                && Objects.equals(mManufactureDate, that.mManufactureDate)
+                && Arrays.equals(mRelativeAddress, that.mRelativeAddress);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(mName, mManufacturerPnpId, mProductId, mModelYear, mManufactureDate);
+        return Objects.hash(mName, mManufacturerPnpId, mProductId, mModelYear, mManufactureDate,
+                mRelativeAddress);
     }
 
     /**
