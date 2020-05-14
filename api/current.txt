@@ -28,6 +28,15 @@ package com.android.libraries.tv.tvsystem.display {
 
 }
 
+package com.android.libraries.tv.tvsystem.pm {
+
+  public final class TvPackageInstaller {
+    ctor public TvPackageInstaller(android.content.pm.PackageManager);
+    method @RequiresPermission(android.Manifest.permission.DELETE_PACKAGES) public void uninstallExistingPackage(@NonNull String, android.content.IntentSender);
+  }
+
+}
+
 package com.android.libraries.tv.tvsystem.user {
 
   public interface ITvUserManager {
