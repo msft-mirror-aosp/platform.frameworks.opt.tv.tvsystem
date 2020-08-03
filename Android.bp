@@ -18,6 +18,7 @@ java_sdk_library {
     api_packages: [
         "com.android.libraries.tv.tvsystem",
         "com.android.libraries.tv.tvsystem.display",
+        "com.android.libraries.tv.tvsystem.media",
         "com.android.libraries.tv.tvsystem.pm",
         "com.android.libraries.tv.tvsystem.user",
         "com.android.libraries.tv.tvsystem.wifi"
