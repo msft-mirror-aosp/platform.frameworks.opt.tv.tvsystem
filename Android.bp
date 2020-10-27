@@ -25,6 +25,7 @@ java_sdk_library {
     ],
     dex_preopt: {
         enabled: false,
-    }
+    },
+    system_ext_specific: true
 }
 
