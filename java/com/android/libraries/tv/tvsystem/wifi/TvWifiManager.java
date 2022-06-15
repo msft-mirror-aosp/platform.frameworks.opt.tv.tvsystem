@@ -64,15 +64,12 @@ public final class TvWifiManager {
     public void startLocalOnlyHotspot(@NonNull SoftApConfiguration config,
             @Nullable Executor executor,
             @Nullable WifiManager.LocalOnlyHotspotCallback callback) {
-      android.net.wifi.SoftApConfiguration.Builder frameworkConfig =
+        android.net.wifi.SoftApConfiguration frameworkConfig =
             new android.net.wifi.SoftApConfiguration.Builder()
                 .setBssid(config.getBssid())
                 .setSsid(config.getSsid())
-                .setPassphrase(config.getWpa2Passphrase(), SECURITY_TYPE_WPA2_PSK);
-      if (config.getBssid() != null) {
-          frameworkConfig.setMacRandomizationSetting(
-                  android.net.wifi.SoftApConfiguration.RANDOMIZATION_NONE);
-      }
-      mWifiManager.startLocalOnlyHotspot(frameworkConfig.build(), executor, callback);
+                .setPassphrase(config.getWpa2Passphrase(), SECURITY_TYPE_WPA2_PSK)
+                .build();
+        mWifiManager.startLocalOnlyHotspot(frameworkConfig, executor, callback);
     }
 }
