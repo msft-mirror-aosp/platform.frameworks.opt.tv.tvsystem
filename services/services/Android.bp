@@ -19,6 +19,7 @@ package {
 java_library {
     name: "tv-services",
     installable: true,
+    system_ext_specific: true,
 
     // The convention is 'tv-services.$(module_name)-srcs'
     srcs: [
@@ -27,6 +28,10 @@ java_library {
 
     libs: [
         "services",
+    ],
+
+    required: [
+        "TvServicesOverlay",
     ],
 
     optimize: {
