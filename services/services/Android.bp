@@ -16,6 +16,17 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+// Defines the resource-only package
+android_app {
+    name: "tv-services-resources",
+    installable: false,
+    resource_dirs: ["res"],
+    manifest: "AndroidManifest_Resources.xml",
+    platform_apis: true,
+    export_package_resources: true,
+    system_ext_specific: true,
+}
+
 java_library {
     name: "tv-services",
     installable: true,
@@ -24,14 +35,19 @@ java_library {
     // The convention is 'tv-services.$(module_name)-srcs'
     srcs: [
         ":tv-services.input-srcs",
+        ":tv-services.watchdogservice-srcs",
+        ":framework-javastream-protos",
     ],
 
     libs: [
         "services",
+        "framework",
+        "tv-services-resources",
     ],
 
     required: [
         "TvServicesOverlay",
+        "tv-services-resources",
     ],
 
     optimize: {
