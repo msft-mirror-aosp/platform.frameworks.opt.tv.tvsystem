@@ -1,0 +1,27 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+// Module to generate Java sources from the watchdogservice_dump.proto
+gensrcs {
+    name: "tv-services-dump-proto",
+    tools: [
+        "aprotoc",
+        "protoc-gen-javastream",
+        "soong_zip",
+    ],
+    cmd: "mkdir -p $(genDir)/$(in) " +
+        "&& $(location aprotoc) " +
+        "  --plugin=$(location protoc-gen-javastream) " +
+        "  --javastream_out=$(genDir)/$(in) " +
+        "  -Iexternal/protobuf/src " +
+        "  -I . " +
+        "  $(in) " +
+        "&& $(location soong_zip) -jar -o $(out) -C $(genDir)/$(in) -D $(genDir)/$(in)",
+    // The path is now relative to this new Android.bp file.
+    srcs: ["watchdogservice_dump.proto"],
+    data: [
+        ":libprotobuf-internal-protos",
+    ],
+    output_extension: "srcjar",
+}
