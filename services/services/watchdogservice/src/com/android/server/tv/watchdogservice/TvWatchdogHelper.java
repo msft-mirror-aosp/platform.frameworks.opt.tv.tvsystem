@@ -37,10 +37,10 @@ import android.text.TextUtils;
 import android.util.ArraySet;
 import android.util.StatsEvent;
 
+import com.android.internal.R;
 import com.android.internal.util.FrameworkStatsLog;
 import com.android.server.LocalServices;
 import com.android.server.utils.Slogf;
-import com.android.tv.services.R;
 
 import java.util.ArrayList;
 import java.util.List;
