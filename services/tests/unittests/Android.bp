@@ -1,0 +1,46 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+// Defines the new test module for TvWatchdogService unit tests.
+android_test {
+    name: "TvServicesUnitTests",
+
+    // The glob will pick up both of your test files.
+    srcs: ["src/**/*.java"],
+
+    // The manifest file we will create in the next step.
+    manifest: "AndroidManifest.xml",
+
+    // Grant access to internal APIs.
+    platform_apis: true,
+
+    static_libs: [
+        // The module being tested.
+        "tv-services",
+
+        // Core framework libraries required for testing services.
+        "services.core",
+        "frameworks-base-testutils",
+
+        // Standard testing frameworks.
+        "junit",
+        "mockito-target-minus-junit4",
+        "truth",
+        "guava", // For TvWatchdogHelperTest's use of ImmutableSet
+
+        // AndroidX test libraries.
+        "androidx.test.core",
+        "androidx.test.ext.junit",
+        "androidx.test.rules",
+        "androidx.test.runner",
+    ],
+
+    // This ensures the test is run as part of standard device testing.
+    test_suites: [
+        "device-tests",
+    ],
+
+    // Required for platform tests.
+    certificate: "platform",
+}
