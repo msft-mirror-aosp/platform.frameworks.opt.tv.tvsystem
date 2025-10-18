@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 The Android Open Source Project
+ * Copyright 2026 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,15 +23,9 @@ import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
 import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED_UNTIL_USED;
 import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER;
 import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
-import static android.media.tv.watchdogmanager.PackageKillableState.KILLABLE_STATE_NEVER;
-import static android.media.tv.watchdogmanager.PackageKillableState.KILLABLE_STATE_NO;
-import static android.media.tv.watchdogmanager.PackageKillableState.KILLABLE_STATE_YES;
-import static android.media.tv.watchdogmanager.TvWatchdogManager.FLAG_RESOURCE_OVERUSE_IO;
-import static android.media.tv.watchdogmanager.TvWatchdogManager.STATS_PERIOD_CURRENT_DAY;
-import static android.media.tv.watchdogmanager.TvWatchdogManager.STATS_PERIOD_PAST_15_DAYS;
-import static android.media.tv.watchdogmanager.TvWatchdogManager.STATS_PERIOD_PAST_30_DAYS;
-import static android.media.tv.watchdogmanager.TvWatchdogManager.STATS_PERIOD_PAST_3_DAYS;
-import static android.media.tv.watchdogmanager.TvWatchdogManager.STATS_PERIOD_PAST_7_DAYS;
+import static com.android.tv.tvservices.client.watchdog.PackageKillableState.KILLABLE_STATE_NEVER;
+import static com.android.tv.tvservices.client.watchdog.PackageKillableState.KILLABLE_STATE_NO;
+import static com.android.tv.tvservices.client.watchdog.PackageKillableState.KILLABLE_STATE_YES;
 import static android.os.Process.INVALID_UID;
 import static android.os.UserHandle.USER_NULL;
 
@@ -61,16 +55,15 @@ import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.media.tv.watchdogmanager.IResourceOveruseListener;
-import android.media.tv.watchdogmanager.IoOveruseAlertThreshold;
-import android.media.tv.watchdogmanager.IoOveruseConfiguration;
-import android.media.tv.watchdogmanager.IoOveruseStats;
-import android.media.tv.watchdogmanager.PackageKillableState;
-import android.media.tv.watchdogmanager.PackageKillableState.KillableState;
-import android.media.tv.watchdogmanager.PerStateBytes;
-import android.media.tv.watchdogmanager.ResourceOveruseConfiguration;
-import android.media.tv.watchdogmanager.ResourceOveruseStats;
-import android.media.tv.watchdogmanager.TvWatchdogManager;
+import com.android.tv.tvservices.client.watchdog.IResourceOveruseListener;
+import com.android.tv.tvservices.client.watchdog.IoOveruseAlertThreshold;
+import com.android.tv.tvservices.client.watchdog.IoOveruseConfiguration;
+import com.android.tv.tvservices.client.watchdog.IoOveruseStats;
+import com.android.tv.tvservices.client.watchdog.PackageKillableState;
+import com.android.tv.tvservices.client.watchdog.PackageKillableState.KillableState;
+import com.android.tv.tvservices.client.watchdog.PerStateBytes;
+import com.android.tv.tvservices.client.watchdog.ResourceOveruseConfiguration;
+import com.android.tv.tvservices.client.watchdog.ResourceOveruseStats;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
@@ -128,6 +121,19 @@ import java.util.function.Consumer;
 
 /** Handles system resource performance monitoring module. */
 public class IoOveruseHandler {
+    // Constants previously in TvWatchdogManager
+    public static final int FLAG_RESOURCE_OVERUSE_IO = 1 << 0;
+    public static final int FLAG_MINIMUM_STATS_IO_1_MB = 1 << 0;
+    public static final int FLAG_MINIMUM_STATS_IO_100_MB = 1 << 1;
+    public static final int FLAG_MINIMUM_STATS_IO_1_GB = 1 << 2;
+    public static final int STATS_PERIOD_CURRENT_DAY = 1;
+    public static final int STATS_PERIOD_PAST_3_DAYS = 2;
+    public static final int STATS_PERIOD_PAST_7_DAYS = 3;
+    public static final int STATS_PERIOD_PAST_15_DAYS = 4;
+    public static final int STATS_PERIOD_PAST_30_DAYS = 5;
+    public static final int RETURN_CODE_SUCCESS = 0;
+    public static final int RETURN_CODE_ERROR = -1;
+
     public static final String INTERNAL_APPLICATION_CATEGORY_TYPE_MAPS = "MAPS";
     public static final String INTERNAL_APPLICATION_CATEGORY_TYPE_MEDIA = "MEDIA";
     public static final String INTERNAL_APPLICATION_CATEGORY_TYPE_UNKNOWN = "UNKNOWN";
@@ -484,8 +490,8 @@ public class IoOveruseHandler {
     /** Returns resource overuse stats for the calling package. */
     @NonNull
     public ResourceOveruseStats getResourceOveruseStats(
-            @TvWatchdogManager.ResourceOveruseFlag int resourceOveruseFlag,
-            @TvWatchdogManager.StatsPeriod int maxStatsPeriod) {
+             int resourceOveruseFlag,
+             int maxStatsPeriod) {
         Preconditions.checkArgument(
                 (resourceOveruseFlag > 0), "Must provide valid resource overuse flag");
         Preconditions.checkArgument(
@@ -522,9 +528,9 @@ public class IoOveruseHandler {
     /** Returns resource overuse stats for all packages. */
     @NonNull
     public List<ResourceOveruseStats> getAllResourceOveruseStats(
-            @TvWatchdogManager.ResourceOveruseFlag int resourceOveruseFlag,
-            @TvWatchdogManager.MinimumStatsFlag int minimumStatsFlag,
-            @TvWatchdogManager.StatsPeriod int maxStatsPeriod) {
+             int resourceOveruseFlag,
+             int minimumStatsFlag,
+             int maxStatsPeriod) {
         Preconditions.checkArgument(
                 (resourceOveruseFlag > 0), "Must provide valid resource overuse flag");
         Preconditions.checkArgument(
@@ -558,8 +564,8 @@ public class IoOveruseHandler {
     public ResourceOveruseStats getResourceOveruseStatsForUserPackage(
             @NonNull String packageName,
             @NonNull UserHandle userHandle,
-            @TvWatchdogManager.ResourceOveruseFlag int resourceOveruseFlag,
-            @TvWatchdogManager.StatsPeriod int maxStatsPeriod) {
+             int resourceOveruseFlag,
+             int maxStatsPeriod) {
         Objects.requireNonNull(packageName, "Package name must be non-null");
         Objects.requireNonNull(userHandle, "User handle must be non-null");
         Preconditions.checkArgument(
@@ -597,7 +603,7 @@ public class IoOveruseHandler {
 
     /** Adds the resource overuse listener. */
     public void addResourceOveruseListener(
-            @TvWatchdogManager.ResourceOveruseFlag int resourceOveruseFlag,
+             int resourceOveruseFlag,
             @NonNull IResourceOveruseListener listener) {
         Objects.requireNonNull(listener, "Listener must be non-null");
         Preconditions.checkArgument(
@@ -618,7 +624,7 @@ public class IoOveruseHandler {
 
     /** Adds the resource overuse system listener. */
     public void addResourceOveruseListenerForSystem(
-            @TvWatchdogManager.ResourceOveruseFlag int resourceOveruseFlag,
+             int resourceOveruseFlag,
             @NonNull IResourceOveruseListener listener) {
         Objects.requireNonNull(listener, "Listener must be non-null");
         Preconditions.checkArgument(
@@ -855,10 +861,10 @@ public class IoOveruseHandler {
     }
 
     /** Sets the given resource overuse configurations. */
-    @TvWatchdogManager.ReturnCode
+
     public int setResourceOveruseConfigurations(
             List<ResourceOveruseConfiguration> configurations,
-            @TvWatchdogManager.ResourceOveruseFlag int resourceOveruseFlag)
+             int resourceOveruseFlag)
             throws RemoteException {
         Objects.requireNonNull(configurations, "Configurations must be non-null");
         Preconditions.checkArgument(
@@ -876,7 +882,7 @@ public class IoOveruseHandler {
         synchronized (mLock) {
             if (!mIsConnectedToDaemon) {
                 setPendingSetResourceOveruseConfigurationsRequestLocked(internalConfigs);
-                return TvWatchdogManager.RETURN_CODE_SUCCESS;
+                return RETURN_CODE_SUCCESS;
             }
             /* Verify no pending request in progress. */
             setPendingSetResourceOveruseConfigurationsRequestLocked(null);
@@ -888,7 +894,7 @@ public class IoOveruseHandler {
     /** Returns the available resource overuse configurations. */
     @NonNull
     public List<ResourceOveruseConfiguration> getResourceOveruseConfigurations(
-            @TvWatchdogManager.ResourceOveruseFlag int resourceOveruseFlag) {
+             int resourceOveruseFlag) {
         Preconditions.checkArgument(
                 (resourceOveruseFlag > 0), "Must provide valid resource overuse flag");
         if (!isConnectedToDaemon()) {
@@ -1020,7 +1026,7 @@ public class IoOveruseHandler {
                             Slogf.i(
                                     TAG,
                                     "Reset resource overuse settings and stats for user '%d'"
-                                            + " package '%s'",
+                                            + "package '%s'",
                                     usage.userId,
                                     usage.genericPackageName);
                             if (usage.isSharedPackage() && usage.getUid() == INVALID_UID) {
@@ -1696,7 +1702,7 @@ public class IoOveruseHandler {
     private IoOveruseStats getIoOveruseStatsForPeriod(
             int userId,
             String genericPackageName,
-            @TvWatchdogManager.StatsPeriod int maxStatsPeriod) {
+             int maxStatsPeriod) {
         synchronized (mLock) {
             String key = getUserPackageUniqueId(userId, genericPackageName);
             PackageResourceUsage usage = mUsageByUserPackage.get(key);
@@ -1711,7 +1717,7 @@ public class IoOveruseHandler {
     private IoOveruseStats getIoOveruseStatsLocked(
             PackageResourceUsage usage,
             long minimumBytesWritten,
-            @TvWatchdogManager.StatsPeriod int maxStatsPeriod) {
+             int maxStatsPeriod) {
         if (!usage.ioUsage.hasUsage()) {
             /* Return I/O overuse stats only when the package has usage for the current day.
              * Without the current day usage, the returned stats will contain zero remaining
@@ -1752,7 +1758,7 @@ public class IoOveruseHandler {
 
     @GuardedBy("mLock")
     private void addResourceOveruseListenerLocked(
-            @TvWatchdogManager.ResourceOveruseFlag int resourceOveruseFlag,
+             int resourceOveruseFlag,
             @NonNull IResourceOveruseListener listener,
             SparseArray<List<ResourceOveruseListenerInfo>> listenerInfosByUid) {
         int callingPid = Binder.getCallingPid();
@@ -1861,7 +1867,7 @@ public class IoOveruseHandler {
         try {
             int result =
                     setResourceOveruseConfigurationsInternal(configs, /* isPendingRequest= */ true);
-            if (result != TvWatchdogManager.RETURN_CODE_SUCCESS) {
+            if (result != RETURN_CODE_SUCCESS) {
                 Slogf.e(
                         TAG,
                         "Failed to set pending resource overuse configurations. Return code "
@@ -1892,7 +1898,7 @@ public class IoOveruseHandler {
                     setPendingSetResourceOveruseConfigurationsRequestLocked(configs);
                 }
                 doClearPendingRequest = false;
-                return TvWatchdogManager.RETURN_CODE_SUCCESS;
+                return RETURN_CODE_SUCCESS;
             } finally {
                 if (doClearPendingRequest) {
                     synchronized (mLock) {
@@ -1906,7 +1912,7 @@ public class IoOveruseHandler {
         } finally {
             Trace.endSection();
         }
-        return TvWatchdogManager.RETURN_CODE_SUCCESS;
+        return RETURN_CODE_SUCCESS;
     }
 
     private boolean isConnectedToDaemon() {
@@ -2587,12 +2593,12 @@ public class IoOveruseHandler {
     }
 
     private static long getMinimumBytesWritten(
-            @TvWatchdogManager.MinimumStatsFlag int minimumStatsIoFlag) {
+             int minimumStatsIoFlag) {
         return switch (minimumStatsIoFlag) {
             case 0 -> 0;
-            case TvWatchdogManager.FLAG_MINIMUM_STATS_IO_1_MB -> 1024 * 1024;
-            case TvWatchdogManager.FLAG_MINIMUM_STATS_IO_100_MB -> 100 * 1024 * 1024;
-            case TvWatchdogManager.FLAG_MINIMUM_STATS_IO_1_GB -> 1024 * 1024 * 1024;
+            case FLAG_MINIMUM_STATS_IO_1_MB -> 1024 * 1024;
+            case FLAG_MINIMUM_STATS_IO_100_MB -> 100 * 1024 * 1024;
+            case FLAG_MINIMUM_STATS_IO_1_GB -> 1024 * 1024 * 1024;
             default ->
                     throw new IllegalArgumentException(
                             "Must provide valid minimum stats flag for I/O resource");
@@ -2602,7 +2608,7 @@ public class IoOveruseHandler {
     private static android.automotive.watchdog.internal.ResourceOveruseConfiguration
             toInternalResourceOveruseConfiguration(
                     ResourceOveruseConfiguration config,
-                    @TvWatchdogManager.ResourceOveruseFlag int resourceOveruseFlag) {
+                     int resourceOveruseFlag) {
         android.automotive.watchdog.internal.ResourceOveruseConfiguration internalConfig =
                 new android.automotive.watchdog.internal.ResourceOveruseConfiguration();
         internalConfig.componentType = config.getComponentType();
@@ -2724,7 +2730,7 @@ public class IoOveruseHandler {
 
     private static ResourceOveruseConfiguration toResourceOveruseConfiguration(
             android.automotive.watchdog.internal.ResourceOveruseConfiguration internalConfig,
-            @TvWatchdogManager.ResourceOveruseFlag int resourceOveruseFlag) {
+             int resourceOveruseFlag) {
         ArrayMap<String, String> packagesToAppCategoryTypes = new ArrayMap<>();
         for (int i = 0; i < internalConfig.packageMetadata.size(); ++i) {
             String categoryTypeStr;
@@ -2813,7 +2819,7 @@ public class IoOveruseHandler {
 
     private static void checkResourceOveruseConfigs(
             List<ResourceOveruseConfiguration> configurations,
-            @TvWatchdogManager.ResourceOveruseFlag int resourceOveruseFlag) {
+             int resourceOveruseFlag) {
         ArraySet<Integer> seenComponentTypes = new ArraySet<>();
         for (int i = 0; i < configurations.size(); ++i) {
             ResourceOveruseConfiguration config = configurations.get(i);
@@ -2828,7 +2834,7 @@ public class IoOveruseHandler {
 
     private static void checkResourceOveruseConfig(
             ResourceOveruseConfiguration config,
-            @TvWatchdogManager.ResourceOveruseFlag int resourceOveruseFlag) {
+             int resourceOveruseFlag) {
         int componentType = config.getComponentType();
         if (Objects.equals(toComponentTypeStr(componentType), "UNKNOWN")) {
             throw new IllegalArgumentException(
@@ -2891,7 +2897,7 @@ public class IoOveruseHandler {
         }
     }
 
-    private static int toNumDays(@TvWatchdogManager.StatsPeriod int maxStatsPeriod) {
+    private static int toNumDays( int maxStatsPeriod) {
         return switch (maxStatsPeriod) {
             case STATS_PERIOD_CURRENT_DAY -> 0;
             case STATS_PERIOD_PAST_3_DAYS -> 3;
@@ -3193,8 +3199,7 @@ public class IoOveruseHandler {
             return ioUsage.getIoOveruseStats(mKillableState != KILLABLE_STATE_NEVER);
         }
 
-        @KillableState
-        int getKillableState() {
+        @KillableState int getKillableState() {
             return mKillableState;
         }
 
@@ -3242,14 +3247,14 @@ public class IoOveruseHandler {
 
     private final class ResourceOveruseListenerInfo implements IBinder.DeathRecipient {
         final IResourceOveruseListener listener;
-        final @TvWatchdogManager.ResourceOveruseFlag int flag;
+        final  int flag;
         final int pid;
         final int uid;
         final boolean isListenerForSystem;
 
         ResourceOveruseListenerInfo(
                 IResourceOveruseListener listener,
-                @TvWatchdogManager.ResourceOveruseFlag int flag,
+                 int flag,
                 int pid,
                 int uid,
                 boolean isListenerForSystem) {
@@ -3290,7 +3295,7 @@ public class IoOveruseHandler {
         }
 
         void notifyListener(
-                @TvWatchdogManager.ResourceOveruseFlag int resourceType,
+                 int resourceType,
                 int overusingUid,
                 String overusingGenericPackageName,
                 ResourceOveruseStats resourceOveruseStats) {

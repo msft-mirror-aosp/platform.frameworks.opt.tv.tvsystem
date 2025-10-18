@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 The Android Open Source Project
+ * Copyright 2026 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,13 @@ import static android.content.Intent.ACTION_USER_REMOVED;
 import static android.content.Intent.ACTION_USER_SWITCHED;
 import static android.os.PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED;
 
+import static com.android.server.tv.watchdogservice.IoOveruseHandler.RETURN_CODE_ERROR;
 import static com.android.server.tv.watchdogservice.TvWatchdogHelper.ACTION_NOTIFICATION_DISMISSED;
 import static com.android.server.tv.watchdogservice.TvWatchdogHelper.EXTRA_NOTIFICATION_ID;
 
 import android.annotation.EnforcePermission;
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.UserIdInt;
 import android.automotive.watchdog.internal.GarageMode;
 import android.automotive.watchdog.internal.ICarWatchdogServiceForSystem;
@@ -42,12 +44,12 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.hardware.display.DisplayManager;
-import android.media.tv.watchdogmanager.IResourceOveruseListener;
-import android.media.tv.watchdogmanager.ITvWatchdogService;
-import android.media.tv.watchdogmanager.PackageKillableState;
-import android.media.tv.watchdogmanager.ResourceOveruseConfiguration;
-import android.media.tv.watchdogmanager.ResourceOveruseStats;
-import android.media.tv.watchdogmanager.TvWatchdogManager;
+import android.media.tv.flags.Flags;
+import com.android.tv.tvservices.client.watchdog.IResourceOveruseListener;
+import com.android.tv.tvservices.client.watchdog.ITvWatchdogService;
+import com.android.tv.tvservices.client.watchdog.PackageKillableState;
+import com.android.tv.tvservices.client.watchdog.ResourceOveruseConfiguration;
+import com.android.tv.tvservices.client.watchdog.ResourceOveruseStats;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -109,10 +111,10 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
     ICarWatchdogServiceForSystemImpl mWatchdogServiceForSystem;
 
     Handler mServiceHandler;
-    IoOveruseHandler mIoOveruseHandler;
-    PackageInfoHandler mPackageInfoHandler;
-    CarWatchdogDaemonHelper mWatchdogDaemonHelper;
-    WatchdogStorage mWatchdogStorage;
+    @Nullable IoOveruseHandler mIoOveruseHandler;
+    @Nullable PackageInfoHandler mPackageInfoHandler;
+    @Nullable CarWatchdogDaemonHelper mWatchdogDaemonHelper;
+    @Nullable WatchdogStorage mWatchdogStorage;
 
     DisplayManager.DisplayListener mDisplayListener;
     BroadcastReceiver mBroadcastReceiver;
@@ -201,12 +203,36 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
 
     @Override
     public void onStart() {
+        if (!Flags.enableTvWatchdogEmmcProtection()) {
+            Slogf.i(TAG, "eMMC protection feature is disabled. Registering stub service.");
+            registerLocalService(new TvWatchdogServiceInternalStub());
+            return;
+        }
+
+        if (!mHandlerThread.isAlive()) {
+            mHandlerThread.start();
+        }
         mServiceHandler = new Handler(mHandlerThread.getLooper());
         initializeListeners();
-        mServiceHandler.post(this::init);
+        init();
 
         publishService(TV_WATCHDOG_SERVICE_NAME, new TvWatchdogBinder());
         registerLocalService(new TvWatchdogServiceInternal());
+    }
+
+    @Override
+    public void onBootPhase(int phase) {
+        if (!Flags.enableTvWatchdogEmmcProtection()) {
+            return;
+        }
+        if (phase == SystemService.PHASE_BOOT_COMPLETED) {
+            Slogf.d(TAG, "Boot completed. Initializing TV Watchdog IO Overuse handler.");
+            if (mIoOveruseHandler != null) {
+                mServiceHandler.post(mIoOveruseHandler::init);
+            }
+            mServiceHandler.post(this::subscribeToDisplayChanges);
+            mServiceHandler.post(this::subscribeBroadcastReceiver);
+        }
     }
 
     @VisibleForTesting
@@ -295,22 +321,11 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
                         recurringOverusePeriodInDays,
                         recurringOveruseTimes,
                         mServiceHandler);
-        mIoOveruseHandler.init();
 
         syncDisabledUserPackages();
 
-        subscribeToDisplayChanges();
-        subscribeBroadcastReceiver();
-
         mWatchdogDaemonHelper.addOnConnectionChangeListener(this::onDaemonConnectionChange);
-        mWatchdogDaemonHelper.connect();
-    }
-
-    @Override
-    public void onBootPhase(int phase) {
-        if (phase == SystemService.PHASE_BOOT_COMPLETED) {
-            Slogf.d(TAG, "Boot completed. TV Watchdog is fully running.");
-        }
+        mServiceHandler.post(mWatchdogDaemonHelper::connect);
     }
 
     void release() {
@@ -322,8 +337,10 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
         if (mWatchdogStorage != null) {
             mWatchdogStorage.release();
         }
-        unregisterFromDaemon();
-        mWatchdogDaemonHelper.disconnect();
+        if (mWatchdogDaemonHelper != null) {
+            unregisterFromDaemon();
+            mWatchdogDaemonHelper.disconnect();
+        }
     }
 
     private void handleBroadcast(Intent intent) {
@@ -335,7 +352,7 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
                 Slogf.i(TAG, "System is shutting down. Releasing TvWatchdogService resources.");
                 onPowerState(PowerCycle.POWER_CYCLE_SHUTDOWN_ENTER);
                 if (mServiceHandler != null) {
-                    mServiceHandler.runWithScissors(this::release, 5000);
+                    mServiceHandler.post(this::release);
                 }
             }
             case ACTION_USER_REMOVED -> {
@@ -344,7 +361,9 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
                 if (userHandle != null) {
                     int userId = userHandle.getIdentifier();
                     notifyUserStateChange(userId, UserState.USER_STATE_REMOVED);
-                    mIoOveruseHandler.deleteUser(userId);
+                    if (mIoOveruseHandler != null) {
+                        mIoOveruseHandler.deleteUser(userId);
+                    }
                 }
             }
             case ACTION_USER_SWITCHED -> {
@@ -353,7 +372,11 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
                     notifyUserStateChange(newUserId, UserState.USER_STATE_SWITCHING);
                 }
             }
-            case ACTION_PACKAGE_CHANGED -> mIoOveruseHandler.processActionPackageChanged(intent);
+            case ACTION_PACKAGE_CHANGED -> {
+                if (mIoOveruseHandler != null) {
+                    mIoOveruseHandler.processActionPackageChanged(intent);
+                }
+            }
             case ACTION_NOTIFICATION_DISMISSED -> {
                 int notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1);
                 if (notificationId != -1) {
@@ -377,7 +400,9 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
                     if (isConnected) {
                         registerToDaemon();
                     }
-                    mIoOveruseHandler.onDaemonConnectionChange(isConnected);
+                    if (mIoOveruseHandler != null) {
+                        mIoOveruseHandler.onDaemonConnectionChange(isConnected);
+                    }
                 });
     }
 
@@ -385,11 +410,15 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
         switch (powerCycle) {
             case PowerCycle.POWER_CYCLE_SHUTDOWN_PREPARE -> {
                 Slogf.i(TAG, "Handling shutdown prepare: writing metadata file.");
-                mIoOveruseHandler.writeMetadataFile();
+                if (mIoOveruseHandler != null) {
+                    mIoOveruseHandler.writeMetadataFile();
+                }
             }
             case PowerCycle.POWER_CYCLE_SHUTDOWN_ENTER -> {
                 Slogf.i(TAG, "Handling shutdown enter: writing to database.");
-                mIoOveruseHandler.writeToDatabase();
+                if (mIoOveruseHandler != null) {
+                    mIoOveruseHandler.writeToDatabase();
+                }
             }
         }
         notifyPowerCycleChange(powerCycle);
@@ -405,10 +434,12 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
         }
         if (DEBUG) Slogf.d(TAG, "Display state changed to: " + Display.stateToString(newState));
 
-        if (newState == Display.STATE_OFF) {
-            mIoOveruseHandler.processUxStateChange(IoOveruseHandler.UX_STATE_NO_INTERACTION);
-        } else {
-            mIoOveruseHandler.processUxStateChange(IoOveruseHandler.UX_STATE_USER_NOTIFICATION);
+        if (mIoOveruseHandler != null) {
+            if (newState == Display.STATE_OFF) {
+                mIoOveruseHandler.processUxStateChange(IoOveruseHandler.UX_STATE_NO_INTERACTION);
+            } else {
+                mIoOveruseHandler.processUxStateChange(IoOveruseHandler.UX_STATE_USER_NOTIFICATION);
+            }
         }
     }
 
@@ -418,6 +449,12 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
             mIsDeviceIdle = isIdle;
         }
         if (DEBUG) Slogf.d(TAG, "Device idle mode changed. Is idle: " + isIdle);
+
+        if (isIdle && mWatchdogStorage != null) {
+            Slogf.i(TAG, "Device is idle, shrinking watchdog database.");
+            mWatchdogStorage.shrinkDatabase();
+        }
+
         notifyIdleModeChange();
     }
 
@@ -426,10 +463,12 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
             if (!mIsConnectedToDaemon) return;
         }
         try {
-            mWatchdogDaemonHelper.registerCarWatchdogService(mWatchdogServiceForSystem);
-            if (DEBUG) Slogf.d(TAG, "Successfully registered to watchdog daemon");
-            notifyAllUserStates();
-            notifyIdleModeChange();
+            if (mWatchdogDaemonHelper != null) {
+                mWatchdogDaemonHelper.registerCarWatchdogService(mWatchdogServiceForSystem);
+                if (DEBUG) Slogf.d(TAG, "Successfully registered to watchdog daemon");
+                notifyAllUserStates();
+                notifyIdleModeChange();
+            }
         } catch (RemoteException | RuntimeException e) {
             Slogf.e(TAG, "Cannot register to watchdog daemon", e);
         }
@@ -437,7 +476,9 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
 
     void unregisterFromDaemon() {
         try {
-            mWatchdogDaemonHelper.unregisterCarWatchdogService(mWatchdogServiceForSystem);
+            if (mWatchdogDaemonHelper != null) {
+                mWatchdogDaemonHelper.unregisterCarWatchdogService(mWatchdogServiceForSystem);
+            }
         } catch (RemoteException | RuntimeException e) {
             Slogf.w(TAG, "Cannot unregister from watchdog daemon", e);
         }
@@ -445,13 +486,17 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
 
     void notifyUserStateChange(int userId, int userState) {
         try {
-            mWatchdogDaemonHelper.notifySystemStateChange(StateType.USER_STATE, userId, userState);
+            if (mWatchdogDaemonHelper != null) {
+                mWatchdogDaemonHelper.notifySystemStateChange(
+                        StateType.USER_STATE, userId, userState);
+            }
         } catch (RemoteException | RuntimeException e) {
             Slogf.w(TAG, "Failed to notify daemon of user state change", e);
         }
     }
 
     void notifyAllUserStates() {
+        if (mWatchdogDaemonHelper == null) return;
         final UserManager userManager = mContext.getSystemService(UserManager.class);
         final long identity = Binder.clearCallingIdentity();
         try {
@@ -470,7 +515,10 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
 
     void notifyPowerCycleChange(@PowerCycle int powerCycle) {
         try {
-            mWatchdogDaemonHelper.notifySystemStateChange(StateType.POWER_CYCLE, powerCycle, -1);
+            if (mWatchdogDaemonHelper != null) {
+                mWatchdogDaemonHelper.notifySystemStateChange(
+                        StateType.POWER_CYCLE, powerCycle, -1);
+            }
         } catch (RemoteException | RuntimeException e) {
             Slogf.w(TAG, "Failed to notify daemon of power cycle change", e);
         }
@@ -482,7 +530,10 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
     void notifyIdleModeChange() {
         int garageMode = isDeviceIdle() ? GarageMode.GARAGE_MODE_ON : GarageMode.GARAGE_MODE_OFF;
         try {
-            mWatchdogDaemonHelper.notifySystemStateChange(StateType.GARAGE_MODE, garageMode, -1);
+            if (mWatchdogDaemonHelper != null) {
+                mWatchdogDaemonHelper.notifySystemStateChange(
+                        StateType.GARAGE_MODE, garageMode, -1);
+            }
         } catch (RemoteException | RuntimeException e) {
             Slogf.w(TAG, "Failed to notify daemon of idle mode change", e);
         }
@@ -527,6 +578,7 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
     void syncDisabledUserPackages() {
         mServiceHandler.post(
                 () -> {
+                    if (mIoOveruseHandler == null) return;
                     int[] userIds = mIoOveruseHandler.getAliveUserIds();
                     SparseArray<ArraySet<String>> disabledUserPackagesByUserId =
                             new SparseArray<>();
@@ -614,8 +666,33 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
     @Override
     public void cancelNotificationSlot(String userPackageUniqueId, int notificationId) {
         synchronized (mLock) {
-            mActiveUserNotifications.remove(userPackageUniqueId);
-            mActiveUserNotificationsByNotificationId.remove(notificationId);
+            // Verify that the notification ID actually belongs to the package requesting the
+            // cancellation.
+            String owner = mActiveUserNotificationsByNotificationId.get(notificationId);
+
+            if (userPackageUniqueId.equals(owner)) {
+                mActiveUserNotifications.remove(userPackageUniqueId);
+                mActiveUserNotificationsByNotificationId.remove(notificationId);
+                if (DEBUG) {
+                    Slogf.d(
+                            TAG,
+                            "Cancelled notification slot "
+                                    + notificationId
+                                    + " for "
+                                    + userPackageUniqueId);
+                }
+            } else {
+                // This handles the race condition: The slot was already reassigned
+                // or cleared, so we do nothing to avoid corrupting the new state.
+                Slogf.w(
+                        TAG,
+                        "Attempted to cancel notification slot "
+                                + notificationId
+                                + " for "
+                                + userPackageUniqueId
+                                + ", but it is currently owned by "
+                                + (owner == null ? "null" : owner));
+            }
         }
     }
 
@@ -647,12 +724,12 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
 
         @Override
         public void checkIfAlive(int sessionId, int timeout) {
-            throw new UnsupportedOperationException("Health checking not supported in TV");
+            // Health checking not supported in TV.
         }
 
         @Override
         public void prepareProcessTermination() {
-            throw new UnsupportedOperationException("Health checking not supported in TV");
+            // Health checking not supported in TV.
         }
 
         @Override
@@ -848,7 +925,7 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
                 List<ResourceOveruseConfiguration> configurations, int resourceOveruseFlag)
                 throws RemoteException {
             setResourceOveruseConfigurations_enforcePermission();
-            if (mIoOveruseHandler == null) return TvWatchdogManager.RETURN_CODE_ERROR;
+            if (mIoOveruseHandler == null) return RETURN_CODE_ERROR;
             return mIoOveruseHandler.setResourceOveruseConfigurations(
                     configurations, resourceOveruseFlag);
         }
@@ -865,6 +942,23 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
             getResourceOveruseConfigurations_enforcePermission();
             if (mIoOveruseHandler == null) return Collections.emptyList();
             return mIoOveruseHandler.getResourceOveruseConfigurations(resourceOveruseFlag);
+        }
+    }
+
+    private class TvWatchdogServiceInternalStub extends TvWatchdogServiceInternal {
+        @Override
+        public void setOveruseHandlingDelay(long millis) {
+            // No-op
+        }
+
+        @Override
+        public boolean performResourceOveruseKill(String packageName, int userId) {
+            return false; // Safe default
+        }
+
+        @Override
+        public void injectPowerState(int powerCycle) {
+            // No-op
         }
     }
 }

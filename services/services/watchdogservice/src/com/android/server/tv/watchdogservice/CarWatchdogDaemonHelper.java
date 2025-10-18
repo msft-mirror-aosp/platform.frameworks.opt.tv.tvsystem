@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 The Android Open Source Project
+ * Copyright (C) 2026 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public class CarWatchdogDaemonHelper {
 
-    private static final String TAG = CarWatchdogDaemonHelper.class.getSimpleName();
+    private static final String TAG = "CarWatchdogDaemon";
     /*
      * Car watchdog daemon polls for the service manager status once every 250 milliseconds.
      * CAR_WATCHDOG_DAEMON_BIND_RETRY_INTERVAL_MS value should be at least twice the poll interval
@@ -56,7 +56,7 @@ public class CarWatchdogDaemonHelper {
      */
     private static final long CAR_WATCHDOG_DAEMON_BIND_RETRY_INTERVAL_MS = 500;
     private static final long CAR_WATCHDOG_DAEMON_FIND_MARGINAL_TIME_MS = 300;
-    private static final int CAR_WATCHDOG_DAEMON_BIND_MAX_RETRY = 3;
+    private static final int CAR_WATCHDOG_DAEMON_BIND_MAX_RETRY = 20;
     private static final String CAR_WATCHDOG_DAEMON_INTERFACE =
             "android.automotive.watchdog.internal.ICarWatchdog/default";
 
@@ -108,7 +108,7 @@ public class CarWatchdogDaemonHelper {
     }
 
     public CarWatchdogDaemonHelper(@NonNull String requestor, @NonNull Looper looper) {
-        mTag = TAG + "[" + requestor + "]";
+        mTag = TAG;
 
         mServiceHandler = new Handler(looper);
     }

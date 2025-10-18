@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 The Android Open Source Project
+ * Copyright (C) 2026 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -442,7 +442,7 @@ public final class OveruseConfigurationCache {
                         Slogf.i(
                                 TAG,
                                 "Ignoring I/O overuse threshold for invalid application category:"
-                                    + " %s",
+                                        + " %s",
                                 threshold.name);
             }
         }
