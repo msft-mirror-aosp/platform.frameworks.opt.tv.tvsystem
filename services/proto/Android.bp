@@ -25,3 +25,23 @@ gensrcs {
     ],
     output_extension: "srcjar",
 }
+
+// Generates the local Java Lite API for the TV Watchdog atoms.
+java_library {
+    name: "tv-services-atoms-java-lite",
+    proto: {
+        type: "lite",
+        include_dirs: [
+            "external/protobuf/src",
+            "frameworks/proto_logging/stats",
+        ],
+    },
+    srcs: [
+        "tvatoms.proto", // The path is local to this Android.bp
+    ],
+    static_libs: ["libprotobuf-java-lite"],
+    sdk_version: "core_current",
+    errorprone: {
+        enabled: false,
+    },
+}
