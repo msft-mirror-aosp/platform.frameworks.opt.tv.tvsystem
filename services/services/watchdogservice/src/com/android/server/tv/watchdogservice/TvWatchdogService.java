@@ -29,6 +29,8 @@ import android.util.SparseArray;
 import com.android.internal.annotations.GuardedBy;
 import com.android.server.utils.Slogf;
 
+import java.io.File;
+
 /**
  * TV Watchdog Service.
  *
@@ -41,6 +43,9 @@ public final class TvWatchdogService implements TvWatchdogHelper.Callback {
 
     /** Flag to enable/disable debug logs. */
     static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
+
+    private static final String WATCHDOG_DIR_NAME = "tv_watchdog";
+    private static final String FALLBACK_DATA_DIR_PATH = "/data/system";
 
     /** The starting ID for resource overuse notifications. */
     static final int RESOURCE_OVERUSE_NOTIFICATION_BASE_ID = 1100000;
@@ -209,6 +214,11 @@ public final class TvWatchdogService implements TvWatchdogHelper.Callback {
                 }
             }
         }
+    }
+
+    static File getWatchdogDirFile() {
+        File dataDir = new File(FALLBACK_DATA_DIR_PATH);
+        return new File(dataDir, WATCHDOG_DIR_NAME);
     }
 
     /** Cleans up any active notification state for a package that was just uninstalled. */
