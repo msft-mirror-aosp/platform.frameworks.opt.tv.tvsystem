@@ -1,0 +1,26 @@
+// Signature format: 2.0
+package com.android.tv.tvservices.client.input {
+
+  public interface TvKeyEventActivityCallback {
+    method public void onKeyActivity();
+  }
+
+  public final class TvKeyInputManager {
+    ctor public TvKeyInputManager();
+    method public void registerCallback(@NonNull com.android.tv.tvservices.client.input.TvKeyEventActivityCallback, int) throws android.os.RemoteException;
+    method public void unregisterCallback(@NonNull com.android.tv.tvservices.client.input.TvKeyEventActivityCallback) throws android.os.RemoteException;
+  }
+
+}
+
+package com.android.tv.tvservices.client.media {
+
+  public final class TvMediaQualityManager {
+    ctor public TvMediaQualityManager(android.content.Context);
+    method public android.os.PersistableBundle getPqParams();
+    method public boolean isSupported();
+    method public boolean setPqParmsByKeyValue(@NonNull String[], @NonNull int[]);
+  }
+
+}
+

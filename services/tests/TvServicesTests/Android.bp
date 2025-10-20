@@ -1,0 +1,28 @@
+// Copyright 2025 Google Inc. All Rights Reserved.
+
+android_app {
+    name: "TvServicesTests",
+    srcs: [
+        "src/**/*.java",
+    ],
+    manifest: "AndroidManifest.xml",
+    sdk_version: "system_current",
+    product_specific: true,
+    privileged: true,
+
+    libs: [
+        "tv-services-client.stubs.system",
+    ],
+
+    static_libs: [
+        "androidx.leanback_leanback",
+    ],
+
+    dex_preopt: {
+        enabled: false,
+    },
+
+    uses_libs: [
+        "tv-services-client",
+    ],
+}

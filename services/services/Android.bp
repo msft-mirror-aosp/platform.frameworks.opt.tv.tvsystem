@@ -1,0 +1,51 @@
+// Copyright (C) 2025 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+java_library {
+    name: "tv-services",
+    installable: true,
+    system_ext_specific: true,
+    platform_apis: true,
+
+    // The convention is 'tv-services.$(module_name)-srcs'
+    srcs: [
+        ":tv-services.input-srcs",
+        ":tv-services.watchdogservice-srcs",
+        ":framework-javastream-protos",
+    ],
+
+    libs: [
+        "services",
+        "framework",
+    ],
+
+    required: [
+        "TvServicesOverlay",
+    ],
+
+    optimize: {
+        enabled: true,
+        optimize: true,
+        shrink: true,
+        proguard_compatibility: true,
+        proguard_flags_files: [
+            "proguard.flags",
+        ],
+        ignore_library_extends_program: true,
+    },
+}

@@ -1,0 +1,4 @@
+# Derivatives of SystemService and other services created via reflection
+-keep,allowoptimization,allowaccessmodification class * extends com.android.server.SystemService {
+  public <methods>;
+}
