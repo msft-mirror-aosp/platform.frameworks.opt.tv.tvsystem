@@ -14,6 +14,8 @@
 
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
+    // Sets the default ownership for all modules within the tvsystem component.
+    default_team: "trendy_team_tv_os",
 }
 
 java_sdk_library {
@@ -25,12 +27,12 @@ java_sdk_library {
         "com.android.libraries.tv.tvsystem.media",
         "com.android.libraries.tv.tvsystem.pm",
         "com.android.libraries.tv.tvsystem.user",
-        "com.android.libraries.tv.tvsystem.wifi"
+        "com.android.libraries.tv.tvsystem.wifi",
     ],
     dex_preopt: {
         enabled: false,
     },
     system_ext_specific: true,
     no_dist: true,
-    unsafe_ignore_missing_latest_api: true
+    unsafe_ignore_missing_latest_api: true,
 }
