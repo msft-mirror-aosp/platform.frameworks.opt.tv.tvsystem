@@ -35,4 +35,7 @@ java_sdk_library {
     system_ext_specific: true,
     no_dist: true,
     unsafe_ignore_missing_latest_api: true,
+    lint: {
+        baseline_filename: "lint-baseline.xml",
+    },
 }
