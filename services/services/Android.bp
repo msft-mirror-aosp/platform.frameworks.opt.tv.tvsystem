@@ -34,6 +34,11 @@ java_library {
         "framework",
     ],
 
+    static_libs: [
+        "android.automotive.watchdog.internal-java",
+        "tv-services-atoms-java-lite",
+    ],
+
     required: [
         "TvServicesOverlay",
     ],
