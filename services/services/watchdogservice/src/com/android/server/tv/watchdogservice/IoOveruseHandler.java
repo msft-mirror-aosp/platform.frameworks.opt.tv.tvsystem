@@ -28,6 +28,10 @@ import java.util.StringJoiner;
  */
 public final class IoOveruseHandler {
 
+    public static final String INTERNAL_APPLICATION_CATEGORY_TYPE_MAPS = "MAPS";
+    public static final String INTERNAL_APPLICATION_CATEGORY_TYPE_MEDIA = "MEDIA";
+    public static final String INTERNAL_APPLICATION_CATEGORY_TYPE_UNKNOWN = "UNKNOWN";
+
     /** Parses a semicolon-separated string of package names. */
     public static ArraySet<String> extractPackages(String settingsString) {
         ArraySet<String> packages = new ArraySet<>();
@@ -54,5 +58,22 @@ public final class IoOveruseHandler {
     /** Creates a unique identifier for a user-package combination. */
     public static String getUserPackageUniqueId(@UserIdInt int userId, String packageName) {
         return userId + ":" + packageName;
+    }
+
+    /** Constructs Android Auto PerStateBytes*/
+    static CarWatchdogPerStateBytes constructCarWatchdogPerStateBytes(
+            long foregroundBytes, long backgroundBytes, long garageModeBytes) {
+        CarWatchdogPerStateBytes.Builder perStateBytesBuilder =
+                CarWatchdogPerStateBytes.newBuilder();
+        if (foregroundBytes != 0) {
+            perStateBytesBuilder.setForegroundBytes(foregroundBytes);
+        }
+        if (backgroundBytes != 0) {
+            perStateBytesBuilder.setBackgroundBytes(backgroundBytes);
+        }
+        if (garageModeBytes != 0) {
+            perStateBytesBuilder.setGarageModeBytes(garageModeBytes);
+        }
+        return perStateBytesBuilder.build();
     }
 }
