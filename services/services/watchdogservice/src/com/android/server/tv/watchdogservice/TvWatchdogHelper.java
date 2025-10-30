@@ -45,8 +45,7 @@ import com.android.server.utils.Slogf;
 import java.util.ArrayList;
 import java.util.List;
 
-// TODO: Add "implements IoOveruseHandler.IoOveruseHelper" once IoOveruseHandler is created.
-public class TvWatchdogHelper {
+public class TvWatchdogHelper implements IoOveruseHandler.IoOveruseHelper {
     /** Tag for logging. */
     private static final String TAG = "TvWatchdogHelper";
 

@@ -58,7 +58,7 @@ import java.util.Locale;
 import java.util.Objects;
 
 /** Defines the database to store/retrieve system resource stats history from local storage. */
-public final class WatchdogStorage {
+public class WatchdogStorage {
     private static final String TAG = "WatchdogStorage";
     private static final int RETENTION_PERIOD_IN_DAYS = 30;
     private static final int CLOSE_DB_HELPER_DELAY_MS = 3000;
@@ -344,11 +344,11 @@ public final class WatchdogStorage {
      * Returns daily system-level I/O usage summaries for the given period or {@code null} when
      * summaries are not available.
      */
-    public @Nullable List<CarWatchdogDailyIoUsageSummary> getDailySystemIoUsageSummaries(
+    public @Nullable List<AtomsProto.CarWatchdogDailyIoUsageSummary> getDailySystemIoUsageSummaries(
             long minSystemTotalWrittenBytes,
             long includingStartEpochSeconds,
             long excludingEndEpochSeconds) {
-        List<CarWatchdogDailyIoUsageSummary> dailyIoUsageSummaries =
+        List<AtomsProto.CarWatchdogDailyIoUsageSummary> dailyIoUsageSummaries =
                 IoUsageStatsTable.queryDailySystemIoUsageSummaries(
                         getDatabase(/* isWritable= */ false),
                         includingStartEpochSeconds,
@@ -358,7 +358,8 @@ public final class WatchdogStorage {
         }
         long systemTotalWrittenBytes = 0;
         for (int i = 0; i < dailyIoUsageSummaries.size(); i++) {
-            CarWatchdogPerStateBytes writtenBytes = dailyIoUsageSummaries.get(i).getWrittenBytes();
+            AtomsProto.CarWatchdogPerStateBytes writtenBytes =
+                    dailyIoUsageSummaries.get(i).getWrittenBytes();
             systemTotalWrittenBytes +=
                     writtenBytes.getForegroundBytes()
                             + writtenBytes.getBackgroundBytes()
@@ -379,7 +380,7 @@ public final class WatchdogStorage {
             long minSystemTotalWrittenBytes,
             long includingStartEpochSeconds,
             long excludingEndEpochSeconds) {
-        ArrayMap<String, List<CarWatchdogDailyIoUsageSummary>> summariesById;
+        ArrayMap<String, List<AtomsProto.CarWatchdogDailyIoUsageSummary>> summariesById;
         SQLiteDatabase db = getDatabase(/* isWritable= */ false);
         long systemTotalWrittenBytes =
                 IoUsageStatsTable.querySystemTotalWrittenBytes(
@@ -674,13 +675,13 @@ public final class WatchdogStorage {
     static final class UserPackageDailySummaries {
         public final @UserIdInt int userId;
         public final String packageName;
-        public final List<CarWatchdogDailyIoUsageSummary> dailyIoUsageSummaries;
+        public final List<AtomsProto.CarWatchdogDailyIoUsageSummary> dailyIoUsageSummaries;
         private final long mTotalWrittenBytes;
 
         UserPackageDailySummaries(
                 @UserIdInt int userId,
                 String packageName,
-                List<CarWatchdogDailyIoUsageSummary> dailyIoUsageSummaries) {
+                List<AtomsProto.CarWatchdogDailyIoUsageSummary> dailyIoUsageSummaries) {
             this.userId = userId;
             this.packageName = packageName;
             this.dailyIoUsageSummaries = dailyIoUsageSummaries;
@@ -726,7 +727,7 @@ public final class WatchdogStorage {
         long computeTotalWrittenBytes() {
             long totalBytes = 0;
             for (int i = 0; i < dailyIoUsageSummaries.size(); ++i) {
-                CarWatchdogPerStateBytes writtenBytes =
+                AtomsProto.CarWatchdogPerStateBytes writtenBytes =
                         dailyIoUsageSummaries.get(i).getWrittenBytes();
                 if (writtenBytes.hasForegroundBytes()) {
                     totalBytes += writtenBytes.getForegroundBytes();
@@ -1355,7 +1356,7 @@ public final class WatchdogStorage {
                     Process.myPid());
         }
 
-        public static @Nullable List<CarWatchdogDailyIoUsageSummary>
+        public static @Nullable List<AtomsProto.CarWatchdogDailyIoUsageSummary>
                 queryDailySystemIoUsageSummaries(
                         SQLiteDatabase db,
                         long includingStartEpochSeconds,
@@ -1402,14 +1403,14 @@ public final class WatchdogStorage {
                         String.valueOf(includingStartEpochSeconds),
                         String.valueOf(excludingEndEpochSeconds)
                     };
-            List<CarWatchdogDailyIoUsageSummary> summaries = new ArrayList<>();
+            List<AtomsProto.CarWatchdogDailyIoUsageSummary> summaries = new ArrayList<>();
             try (Cursor cursor = db.rawQuery(queryBuilder.toString(), selectionArgs)) {
                 if (cursor.getCount() == 0) {
                     return null;
                 }
                 while (cursor.moveToNext()) {
                     summaries.add(
-                            CarWatchdogDailyIoUsageSummary.newBuilder()
+                            AtomsProto.CarWatchdogDailyIoUsageSummary.newBuilder()
                                     .setWrittenBytes(
                                             IoOveruseHandler.constructCarWatchdogPerStateBytes(
                                                     /* foregroundBytes= */ cursor.getLong(1),
@@ -1454,7 +1455,7 @@ public final class WatchdogStorage {
             return totalWrittenBytes;
         }
 
-        public static @Nullable ArrayMap<String, List<CarWatchdogDailyIoUsageSummary>>
+        public static @Nullable ArrayMap<String, List<AtomsProto.CarWatchdogDailyIoUsageSummary>>
                 queryTopUsersDailyIoUsageSummaries(
                         SQLiteDatabase db,
                         int numTopUsers,
@@ -1540,19 +1541,21 @@ public final class WatchdogStorage {
                         String.valueOf(includingStartEpochSeconds),
                         String.valueOf(excludingEndEpochSeconds)
                     };
-            ArrayMap<String, List<CarWatchdogDailyIoUsageSummary>> summariesById = new ArrayMap<>();
+            ArrayMap<String, List<AtomsProto.CarWatchdogDailyIoUsageSummary>> summariesById =
+                    new ArrayMap<>();
             try (Cursor cursor = db.rawQuery(queryBuilder.toString(), selectionArgs)) {
                 if (cursor.getCount() == 0) {
                     return null;
                 }
                 while (cursor.moveToNext()) {
                     String id = cursor.getString(0);
-                    List<CarWatchdogDailyIoUsageSummary> summaries = summariesById.get(id);
+                    List<AtomsProto.CarWatchdogDailyIoUsageSummary> summaries =
+                            summariesById.get(id);
                     if (summaries == null) {
                         summaries = new ArrayList<>();
                     }
                     summaries.add(
-                            CarWatchdogDailyIoUsageSummary.newBuilder()
+                            AtomsProto.CarWatchdogDailyIoUsageSummary.newBuilder()
                                     .setWrittenBytes(
                                             IoOveruseHandler.constructCarWatchdogPerStateBytes(
                                                     /* foregroundBytes= */ cursor.getLong(2),
