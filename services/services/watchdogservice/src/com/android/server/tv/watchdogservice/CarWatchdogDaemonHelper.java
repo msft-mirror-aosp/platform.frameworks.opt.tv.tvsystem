@@ -1,0 +1,386 @@
+/*
+ * Copyright (C) 2025 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.android.server.tv.watchdogservice;
+
+import android.annotation.NonNull;
+import android.annotation.Nullable;
+import android.automotive.watchdog.internal.ICarWatchdog;
+import android.automotive.watchdog.internal.ICarWatchdogMonitor;
+import android.automotive.watchdog.internal.ICarWatchdogServiceForSystem;
+import android.automotive.watchdog.internal.ProcessIdentifier;
+import android.automotive.watchdog.internal.ResourceOveruseConfiguration;
+import android.automotive.watchdog.internal.ThreadPolicyWithPriority;
+import android.automotive.watchdog.internal.UserPackageIoUsageStats;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Looper;
+import android.os.RemoteException;
+import android.os.ServiceManager;
+import android.os.SystemClock;
+import android.util.Log;
+
+import com.android.internal.annotations.GuardedBy;
+import com.android.internal.annotations.VisibleForTesting;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+/**
+ * Helper class for car watchdog daemon.
+ *
+ * @hide
+ */
+public class CarWatchdogDaemonHelper {
+
+    private static final String TAG = CarWatchdogDaemonHelper.class.getSimpleName();
+    /*
+     * Car watchdog daemon polls for the service manager status once every 250 milliseconds.
+     * CAR_WATCHDOG_DAEMON_BIND_RETRY_INTERVAL_MS value should be at least twice the poll interval
+     * used by the daemon.
+     */
+    private static final long CAR_WATCHDOG_DAEMON_BIND_RETRY_INTERVAL_MS = 500;
+    private static final long CAR_WATCHDOG_DAEMON_FIND_MARGINAL_TIME_MS = 300;
+    private static final int CAR_WATCHDOG_DAEMON_BIND_MAX_RETRY = 3;
+    private static final String CAR_WATCHDOG_DAEMON_INTERFACE =
+            "android.automotive.watchdog.internal.ICarWatchdog/default";
+
+    private final Handler mServiceHandler;
+    private final CopyOnWriteArrayList<OnConnectionChangeListener> mConnectionListeners =
+            new CopyOnWriteArrayList<>();
+    private final String mTag;
+    private final Object mLock = new Object();
+
+    @GuardedBy("mLock")
+    private @Nullable ICarWatchdog mCarWatchdogDaemon;
+
+    @GuardedBy("mLock")
+    private boolean mConnectionInProgress;
+
+    private final IBinder.DeathRecipient mDeathRecipient =
+            new IBinder.DeathRecipient() {
+                @Override
+                public void binderDied() {
+                    Log.w(mTag, "Car watchdog daemon died: reconnecting");
+                    unlinkToDeath();
+                    synchronized (mLock) {
+                        mCarWatchdogDaemon = null;
+                    }
+                    for (OnConnectionChangeListener listener : mConnectionListeners) {
+                        listener.onConnectionChange(/* isConnected= */ false);
+                    }
+                    mServiceHandler.postDelayed(
+                            () -> connectToDaemon(CAR_WATCHDOG_DAEMON_BIND_MAX_RETRY),
+                            CAR_WATCHDOG_DAEMON_BIND_RETRY_INTERVAL_MS);
+                }
+            };
+
+    private interface Invokable {
+        void invoke(ICarWatchdog daemon) throws RemoteException;
+    }
+
+    /** Listener to notify the state change of the connection to car watchdog daemon. */
+    public interface OnConnectionChangeListener {
+        /** Gets called when car watchdog daemon is connected or disconnected. */
+        void onConnectionChange(boolean isConnected);
+    }
+
+    @VisibleForTesting
+    CarWatchdogDaemonHelper(Handler handler) {
+        mTag = TAG;
+
+        mServiceHandler = handler;
+    }
+
+    public CarWatchdogDaemonHelper(@NonNull String requestor, @NonNull Looper looper) {
+        mTag = TAG + "[" + requestor + "]";
+
+        mServiceHandler = new Handler(looper);
+    }
+
+    /**
+     * Connects to car watchdog daemon.
+     *
+     * <p>When it's connected, {@link OnConnectionChangeListener} is called with {@code true}.
+     */
+    public void connect() {
+        synchronized (mLock) {
+            if (mCarWatchdogDaemon != null || mConnectionInProgress) {
+                return;
+            }
+            mConnectionInProgress = true;
+        }
+        mServiceHandler.post(() -> connectToDaemon(CAR_WATCHDOG_DAEMON_BIND_MAX_RETRY));
+    }
+
+    /**
+     * Disconnects from car watchdog daemon.
+     *
+     * <p>When it's disconnected, {@link OnConnectionChangeListener} is called with {@code false}.
+     */
+    public void disconnect() {
+        unlinkToDeath();
+        synchronized (mLock) {
+            mCarWatchdogDaemon = null;
+        }
+    }
+
+    /**
+     * Adds {@link OnConnectionChangeListener}.
+     *
+     * @param listener Listener to be notified when connection state changes.
+     */
+    public void addOnConnectionChangeListener(@NonNull OnConnectionChangeListener listener) {
+        Objects.requireNonNull(listener, "Listener cannot be null");
+        mConnectionListeners.add(listener);
+    }
+
+    /**
+     * Removes {@link OnConnectionChangeListener}.
+     *
+     * @param listener Listener to be removed.
+     */
+    public void removeOnConnectionChangeListener(@NonNull OnConnectionChangeListener listener) {
+        Objects.requireNonNull(listener, "Listener cannot be null");
+        mConnectionListeners.remove(listener);
+    }
+
+    /**
+     * Registers car watchdog service.
+     *
+     * @param service Car watchdog service to be registered.
+     * @throws RemoteException If the remote call fails.
+     */
+    public void registerCarWatchdogService(ICarWatchdogServiceForSystem service)
+            throws RemoteException {
+        invokeDaemonMethod((daemon) -> daemon.registerCarWatchdogService(service));
+    }
+
+    /**
+     * Unregisters car watchdog service.
+     *
+     * @param service Car watchdog service to be unregistered.
+     * @throws IllegalArgumentException If the service is not registered.
+     * @throws IllegalStateException If car watchdog daemon is not connected.
+     * @throws RemoteException If the remote call fails.
+     */
+    public void unregisterCarWatchdogService(ICarWatchdogServiceForSystem service)
+            throws RemoteException {
+        invokeDaemonMethod((daemon) -> daemon.unregisterCarWatchdogService(service));
+    }
+
+    /**
+     * Tells car watchdog daemon that the monitor has dumped clients' process information.
+     *
+     * @param monitor Car watchdog monitor that dumped process information.
+     * @param processIdentifiers List of process identifiers of processes that have been dumped.
+     * @throws IllegalArgumentException If the monitor is not registered.
+     * @throws IllegalStateException If car watchdog daemon is not connected.
+     * @throws RemoteException If the remote call fails.
+     */
+    public void tellDumpFinished(
+            ICarWatchdogMonitor monitor, List<ProcessIdentifier> processIdentifiers)
+            throws RemoteException {
+        invokeDaemonMethod((daemon) -> daemon.tellDumpFinished(monitor, processIdentifiers));
+    }
+
+    /**
+     * Tells car watchdog daemon that system state has been changed for the specified StateType.
+     *
+     * @param type Either PowerCycle, UserState, or BootPhase
+     * @param arg1 First state change information for the specified state type.
+     * @param arg2 Second state change information for the specified state type.
+     * @throws IllegalArgumentException If the args don't match the state type. Refer to the aidl
+     *     interface for more information on the args.
+     * @throws IllegalStateException If car watchdog daemon is not connected.
+     * @throws RemoteException If the remote call fails.
+     */
+    public void notifySystemStateChange(int type, int arg1, int arg2) throws RemoteException {
+        invokeDaemonMethod((daemon) -> daemon.notifySystemStateChange(type, arg1, arg2));
+    }
+
+    /**
+     * Sets the given resource overuse configurations.
+     *
+     * @param configurations Resource overuse configuration per component type.
+     * @throws IllegalArgumentException If the configurations are invalid.
+     * @throws RemoteException If the remote call fails.
+     */
+    public void updateResourceOveruseConfigurations(
+            List<ResourceOveruseConfiguration> configurations) throws RemoteException {
+        invokeDaemonMethod((daemon) -> daemon.updateResourceOveruseConfigurations(configurations));
+    }
+
+    /**
+     * Returns the available resource overuse configurations.
+     *
+     * @throws RemoteException If the remote call fails.
+     */
+    public List<ResourceOveruseConfiguration> getResourceOveruseConfigurations()
+            throws RemoteException {
+        List<ResourceOveruseConfiguration> configurations = new ArrayList<>();
+        invokeDaemonMethod(
+                (daemon) -> {
+                    configurations.addAll(daemon.getResourceOveruseConfigurations());
+                });
+        return configurations;
+    }
+
+    /**
+     * Set the thread scheduling policy and priority.
+     *
+     * @param pid The process ID.
+     * @param tid The thread ID.
+     * @param uid The user ID for the thread.
+     * @param policy The scheduling policy.
+     * @param priority The scheduling priority.
+     * @throws RemoteException If the remote call fails.
+     */
+    public void setThreadPriority(int pid, int tid, int uid, int policy, int priority)
+            throws RemoteException {
+        invokeDaemonMethod((daemon) -> daemon.setThreadPriority(pid, tid, uid, policy, priority));
+    }
+
+    /**
+     * Get the thread scheduling policy and priority.
+     *
+     * @param pid The process ID.
+     * @param tid The thread ID.
+     * @param uid The user ID for the thread.
+     * @throws RemoteException If the remote call fails.
+     */
+    public int[] getThreadPriority(int pid, int tid, int uid) throws RemoteException {
+        // resultValues stores policy as first element and priority as second element.
+        int[] resultValues = new int[2];
+
+        invokeDaemonMethod(
+                (daemon) -> {
+                    ThreadPolicyWithPriority t = daemon.getThreadPriority(pid, tid, uid);
+                    resultValues[0] = t.policy;
+                    resultValues[1] = t.priority;
+                });
+
+        return resultValues;
+    }
+
+    /**
+     * Handles the current UTC calendar day's I/O usage stats for all package collected during the
+     * previous boot.
+     *
+     * @param userPackageIoUsageStats I/O usage stats for all packages.
+     * @throws RemoteException If the remote call fails.
+     */
+    public void onTodayIoUsageStatsFetched(List<UserPackageIoUsageStats> userPackageIoUsageStats)
+            throws RemoteException {
+        invokeDaemonMethod((daemon) -> daemon.onTodayIoUsageStatsFetched(userPackageIoUsageStats));
+    }
+
+    private void invokeDaemonMethod(Invokable r) throws RemoteException {
+        ICarWatchdog daemon;
+        synchronized (mLock) {
+            if (mCarWatchdogDaemon == null) {
+                throw new IllegalStateException("Car watchdog daemon is not connected");
+            }
+            daemon = mCarWatchdogDaemon;
+        }
+        r.invoke(daemon);
+    }
+
+    private void connectToDaemon(int retryCount) {
+        if (retryCount <= 0) {
+            synchronized (mLock) {
+                mConnectionInProgress = false;
+            }
+            Log.e(
+                    mTag,
+                    "Cannot reconnect to car watchdog daemon after retrying "
+                            + CAR_WATCHDOG_DAEMON_BIND_MAX_RETRY
+                            + " times");
+            return;
+        }
+        if (makeBinderConnection()) {
+            Log.i(mTag, "Connected to car watchdog daemon");
+            return;
+        }
+        final int nextRetry = retryCount - 1;
+        mServiceHandler.postDelayed(
+                () -> connectToDaemon(nextRetry), CAR_WATCHDOG_DAEMON_BIND_RETRY_INTERVAL_MS);
+    }
+
+    private boolean makeBinderConnection() {
+        long currentTimeMs = SystemClock.uptimeMillis();
+        IBinder binder = ServiceManager.checkService(CAR_WATCHDOG_DAEMON_INTERFACE);
+        if (binder == null) {
+            Log.w(mTag, "Getting car watchdog daemon binder failed");
+            return false;
+        }
+        long elapsedTimeMs = SystemClock.uptimeMillis() - currentTimeMs;
+        if (elapsedTimeMs > CAR_WATCHDOG_DAEMON_FIND_MARGINAL_TIME_MS) {
+            Log.wtf(mTag, "Finding car watchdog daemon took too long(" + elapsedTimeMs + "ms)");
+        }
+
+        ICarWatchdog daemon = ICarWatchdog.Stub.asInterface(binder);
+        if (daemon == null) {
+            Log.w(mTag, "Getting car watchdog daemon interface failed");
+            return false;
+        }
+        synchronized (mLock) {
+            mCarWatchdogDaemon = daemon;
+            mConnectionInProgress = false;
+        }
+        linkToDeath();
+        for (OnConnectionChangeListener listener : mConnectionListeners) {
+            listener.onConnectionChange(/* isConnected= */ true);
+        }
+        return true;
+    }
+
+    private void linkToDeath() {
+        IBinder binder;
+        synchronized (mLock) {
+            if (mCarWatchdogDaemon == null) {
+                return;
+            }
+            binder = mCarWatchdogDaemon.asBinder();
+        }
+        if (binder == null) {
+            Log.w(mTag, "Linking to binder death recipient skipped");
+            return;
+        }
+        try {
+            binder.linkToDeath(mDeathRecipient, 0);
+        } catch (RemoteException e) {
+            Log.w(mTag, "Linking to binder death recipient failed: " + e);
+        }
+    }
+
+    private void unlinkToDeath() {
+        IBinder binder;
+        synchronized (mLock) {
+            if (mCarWatchdogDaemon == null) {
+                return;
+            }
+            binder = mCarWatchdogDaemon.asBinder();
+        }
+        if (binder == null) {
+            Log.w(mTag, "Unlinking from binder death recipient skipped");
+            return;
+        }
+        binder.unlinkToDeath(mDeathRecipient, 0);
+    }
+}
