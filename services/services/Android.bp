@@ -30,8 +30,15 @@ java_library {
     ],
 
     libs: [
-        "services",
+        // Use `services.impl` to avoid a dependency cycle when tracing
+        // references that feed into `services` during dex optimization.
+        "services.impl",
         "framework",
+    ],
+
+    static_libs: [
+        "android.automotive.watchdog.internal-java",
+        "tv-services-atoms-java-lite",
     ],
 
     required: [

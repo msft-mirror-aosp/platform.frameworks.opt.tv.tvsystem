@@ -1,0 +1,52 @@
+/*
+ * Copyright (C) 2025 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto2";
+option java_multiple_files = true;
+package com.android.server.tv.watchdogservice;
+
+/**
+ * Logs daily I/O usage summary.
+ *
+ * Keep in sync with proto files at
+ * packages/services/Car/service/proto/android/car/watchdog/atoms.proto and
+ * frameworks/proto_logging/stats/atoms.proto
+ *
+ */
+ message CarWatchdogDailyIoUsageSummary {
+  // Total bytes written to disk during a day.
+  optional CarWatchdogPerStateBytes written_bytes = 1;
+  // Total uptime for the system or service or application during a day.
+  optional uint64 uptime_millis = 2;
+  // Total disk I/O overuses during a day.
+  optional int32 overuse_count = 3;
+}
+
+/**
+ * Logs bytes attributed to each application and system states.
+ *
+ * Keep in sync with proto file at
+ * packages/services/Car/service/proto/android/car/watchdog/atoms.proto and
+ * frameworks/proto_logging/stats/atoms.proto
+ */
+message CarWatchdogPerStateBytes {
+    // Number of bytes attributed to the application foreground.
+    optional int64 foreground_bytes = 1;
+    // Number of bytes attributed to the application background.
+    optional int64 background_bytes = 2;
+    // Number of bytes attributed to the garage mode.
+    optional int64 garage_mode_bytes = 3;
+}
