@@ -27,19 +27,19 @@ import android.automotive.watchdog.internal.PackageMetadata;
 import android.automotive.watchdog.internal.PerStateIoOveruseThreshold;
 import android.automotive.watchdog.internal.ResourceOveruseConfiguration;
 import android.automotive.watchdog.internal.ResourceSpecificConfiguration;
-import com.android.server.utils.Slogf;
 import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.util.SparseArray;
 import android.util.proto.ProtoOutputStream;
 
+import com.android.internal.annotations.GuardedBy;
 import com.android.internal.util.IndentingPrintWriter;
 import com.android.server.tv.watchdogservice.PerformanceDump.IoThresholdByAppCategory;
 import com.android.server.tv.watchdogservice.PerformanceDump.IoThresholdByComponent;
 import com.android.server.tv.watchdogservice.PerformanceDump.IoThresholdByPackage;
 import com.android.server.tv.watchdogservice.PerformanceDump.OveruseConfigurationCacheDump;
 import com.android.server.tv.watchdogservice.PerformanceDump.PackageByAppCategory;
-import com.android.internal.annotations.GuardedBy;
+import com.android.server.utils.Slogf;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,20 +58,28 @@ public final class OveruseConfigurationCache {
             constructPerStateBytes(Long.MAX_VALUE, Long.MAX_VALUE, Long.MAX_VALUE);
 
     private final Object mLock = new Object();
+
     @GuardedBy("mLock")
     private final ArraySet<String> mSafeToKillSystemPackages = new ArraySet<>();
+
     @GuardedBy("mLock")
     private final ArraySet<String> mSafeToKillVendorPackages = new ArraySet<>();
+
     @GuardedBy("mLock")
     private final List<String> mVendorPackagePrefixes = new ArrayList<>();
+
     @GuardedBy("mLock")
     private final SparseArray<ArraySet<String>> mPackagesByAppCategoryType = new SparseArray<>();
+
     @GuardedBy("mLock")
     private final SparseArray<PerStateBytes> mGenericIoThresholdsByComponent = new SparseArray<>();
+
     @GuardedBy("mLock")
     private final ArrayMap<String, PerStateBytes> mIoThresholdsBySystemPackages = new ArrayMap<>();
+
     @GuardedBy("mLock")
     private final ArrayMap<String, PerStateBytes> mIoThresholdsByVendorPackages = new ArrayMap<>();
+
     @GuardedBy("mLock")
     private final SparseArray<PerStateBytes> mIoThresholdsByAppCategoryType = new SparseArray<>();
 
@@ -86,16 +94,19 @@ public final class OveruseConfigurationCache {
             writer.println("mPackagesByAppCategoryType: ");
             writer.increaseIndent();
             for (int i = 0; i < mPackagesByAppCategoryType.size(); ++i) {
-                writer.print("App category: "
-                        + toApplicationCategoryTypeString(mPackagesByAppCategoryType.keyAt(i)));
+                writer.print(
+                        "App category: "
+                                + toApplicationCategoryTypeString(
+                                        mPackagesByAppCategoryType.keyAt(i)));
                 writer.println(", Packages: " + mPackagesByAppCategoryType.valueAt(i));
             }
             writer.decreaseIndent();
             writer.println("mGenericIoThresholdsByComponent: ");
             writer.increaseIndent();
             for (int i = 0; i < mGenericIoThresholdsByComponent.size(); ++i) {
-                writer.print("Component type: "
-                        + toComponentTypeString(mGenericIoThresholdsByComponent.keyAt(i)));
+                writer.print(
+                        "Component type: "
+                                + toComponentTypeString(mGenericIoThresholdsByComponent.keyAt(i)));
                 writer.print(", Threshold: ");
                 dumpPerStateBytes(mGenericIoThresholdsByComponent.valueAt(i), writer);
             }
@@ -119,8 +130,10 @@ public final class OveruseConfigurationCache {
             writer.println("mIoThresholdsByAppCategoryType: ");
             writer.increaseIndent();
             for (int i = 0; i < mIoThresholdsByAppCategoryType.size(); ++i) {
-                writer.print("App category: "
-                        + toApplicationCategoryTypeString(mIoThresholdsByAppCategoryType.keyAt(i)));
+                writer.print(
+                        "App category: "
+                                + toApplicationCategoryTypeString(
+                                        mIoThresholdsByAppCategoryType.keyAt(i)));
                 writer.print(", Threshold: ");
                 dumpPerStateBytes(mIoThresholdsByAppCategoryType.valueAt(i), writer);
             }
@@ -132,99 +145,117 @@ public final class OveruseConfigurationCache {
     /** Dumps the contents of the cache in proto format. */
     public void dumpProto(ProtoOutputStream proto) {
         synchronized (mLock) {
-            long overuseConfigurationCacheDumpToken = proto.start(
-                    PerformanceDump.OVERUSE_CONFIGURATION_CACHE_DUMP);
+            long overuseConfigurationCacheDumpToken =
+                    proto.start(PerformanceDump.OVERUSE_CONFIGURATION_CACHE_DUMP);
             for (int i = 0; i < mSafeToKillSystemPackages.size(); i++) {
-                proto.write(OveruseConfigurationCacheDump.SAFE_TO_KILL_SYSTEM_PACKAGES,
+                proto.write(
+                        OveruseConfigurationCacheDump.SAFE_TO_KILL_SYSTEM_PACKAGES,
                         mSafeToKillSystemPackages.valueAt(i));
             }
             for (int i = 0; i < mSafeToKillVendorPackages.size(); i++) {
-                proto.write(OveruseConfigurationCacheDump.SAFE_TO_KILL_VENDOR_PACKAGES,
+                proto.write(
+                        OveruseConfigurationCacheDump.SAFE_TO_KILL_VENDOR_PACKAGES,
                         mSafeToKillVendorPackages.valueAt(i));
             }
             for (int i = 0; i < mVendorPackagePrefixes.size(); i++) {
-                proto.write(OveruseConfigurationCacheDump.VENDOR_PACKAGE_PREFIXES,
+                proto.write(
+                        OveruseConfigurationCacheDump.VENDOR_PACKAGE_PREFIXES,
                         mVendorPackagePrefixes.get(i));
             }
 
             for (int i = 0; i < mPackagesByAppCategoryType.size(); i++) {
-                long packageByAppCategoryToken = proto.start(
-                        OveruseConfigurationCacheDump.PACKAGES_BY_APP_CATEGORY);
-                proto.write(PackageByAppCategory.APPLICATION_CATEGORY,
+                long packageByAppCategoryToken =
+                        proto.start(OveruseConfigurationCacheDump.PACKAGES_BY_APP_CATEGORY);
+                proto.write(
+                        PackageByAppCategory.APPLICATION_CATEGORY,
                         toProtoApplicationCategory(mPackagesByAppCategoryType.keyAt(i)));
                 ArraySet<String> packages = mPackagesByAppCategoryType.valueAt(i);
                 for (int j = 0; j < packages.size(); j++) {
-                    proto.write(PackageByAppCategory.PACKAGE_NAME,
-                            packages.valueAt(j));
+                    proto.write(PackageByAppCategory.PACKAGE_NAME, packages.valueAt(j));
                 }
                 proto.end(packageByAppCategoryToken);
             }
 
             for (int i = 0; i < mGenericIoThresholdsByComponent.size(); i++) {
-                long ioThresholdByComponentToken = proto.start(
-                        OveruseConfigurationCacheDump.GENERIC_IO_THRESHOLDS_BY_COMPONENT);
-                proto.write(IoThresholdByComponent.COMPONENT_TYPE,
+                long ioThresholdByComponentToken =
+                        proto.start(
+                                OveruseConfigurationCacheDump.GENERIC_IO_THRESHOLDS_BY_COMPONENT);
+                proto.write(
+                        IoThresholdByComponent.COMPONENT_TYPE,
                         toProtoComponentType(mGenericIoThresholdsByComponent.keyAt(i)));
                 long perStateBytesToken = proto.start(IoThresholdByComponent.THRESHOLD);
                 PerStateBytes perStateBytes = mGenericIoThresholdsByComponent.valueAt(i);
-                proto.write(PerformanceDump.PerStateBytes.FOREGROUND_BYTES,
+                proto.write(
+                        PerformanceDump.PerStateBytes.FOREGROUND_BYTES,
                         perStateBytes.foregroundBytes);
-                proto.write(PerformanceDump.PerStateBytes.BACKGROUND_BYTES,
+                proto.write(
+                        PerformanceDump.PerStateBytes.BACKGROUND_BYTES,
                         perStateBytes.backgroundBytes);
-                proto.write(PerformanceDump.PerStateBytes.GARAGEMODE_BYTES,
+                proto.write(
+                        PerformanceDump.PerStateBytes.GARAGEMODE_BYTES,
                         perStateBytes.garageModeBytes);
                 proto.end(perStateBytesToken);
                 proto.end(ioThresholdByComponentToken);
             }
 
             for (int i = 0; i < mIoThresholdsBySystemPackages.size(); i++) {
-                long ioThresholdByPackageToken = proto.start(
-                        OveruseConfigurationCacheDump.IO_THRESHOLDS_BY_PACKAGE);
+                long ioThresholdByPackageToken =
+                        proto.start(OveruseConfigurationCacheDump.IO_THRESHOLDS_BY_PACKAGE);
                 proto.write(IoThresholdByPackage.PACKAGE_TYPE, PerformanceDump.SYSTEM);
                 long perStateBytesToken = proto.start(IoThresholdByComponent.THRESHOLD);
                 PerStateBytes perStateBytes = mIoThresholdsBySystemPackages.valueAt(i);
-                proto.write(PerformanceDump.PerStateBytes.FOREGROUND_BYTES,
+                proto.write(
+                        PerformanceDump.PerStateBytes.FOREGROUND_BYTES,
                         perStateBytes.foregroundBytes);
-                proto.write(PerformanceDump.PerStateBytes.BACKGROUND_BYTES,
+                proto.write(
+                        PerformanceDump.PerStateBytes.BACKGROUND_BYTES,
                         perStateBytes.backgroundBytes);
-                proto.write(PerformanceDump.PerStateBytes.GARAGEMODE_BYTES,
+                proto.write(
+                        PerformanceDump.PerStateBytes.GARAGEMODE_BYTES,
                         perStateBytes.garageModeBytes);
                 proto.end(perStateBytesToken);
-                proto.write(IoThresholdByPackage.PACKAGE_NAME,
-                        mIoThresholdsBySystemPackages.keyAt(i));
+                proto.write(
+                        IoThresholdByPackage.PACKAGE_NAME, mIoThresholdsBySystemPackages.keyAt(i));
                 proto.end(ioThresholdByPackageToken);
             }
 
             for (int i = 0; i < mIoThresholdsByVendorPackages.size(); i++) {
-                long ioThresholdByPackageToken = proto.start(
-                        OveruseConfigurationCacheDump.IO_THRESHOLDS_BY_PACKAGE);
+                long ioThresholdByPackageToken =
+                        proto.start(OveruseConfigurationCacheDump.IO_THRESHOLDS_BY_PACKAGE);
                 proto.write(IoThresholdByPackage.PACKAGE_TYPE, PerformanceDump.VENDOR);
                 long perStateBytesToken = proto.start(IoThresholdByComponent.THRESHOLD);
                 PerStateBytes perStateBytes = mIoThresholdsByVendorPackages.valueAt(i);
-                proto.write(PerformanceDump.PerStateBytes.FOREGROUND_BYTES,
+                proto.write(
+                        PerformanceDump.PerStateBytes.FOREGROUND_BYTES,
                         perStateBytes.foregroundBytes);
-                proto.write(PerformanceDump.PerStateBytes.BACKGROUND_BYTES,
+                proto.write(
+                        PerformanceDump.PerStateBytes.BACKGROUND_BYTES,
                         perStateBytes.backgroundBytes);
-                proto.write(PerformanceDump.PerStateBytes.GARAGEMODE_BYTES,
+                proto.write(
+                        PerformanceDump.PerStateBytes.GARAGEMODE_BYTES,
                         perStateBytes.garageModeBytes);
                 proto.end(perStateBytesToken);
-                proto.write(IoThresholdByPackage.PACKAGE_NAME,
-                        mIoThresholdsByVendorPackages.keyAt(i));
+                proto.write(
+                        IoThresholdByPackage.PACKAGE_NAME, mIoThresholdsByVendorPackages.keyAt(i));
                 proto.end(ioThresholdByPackageToken);
             }
 
             for (int i = 0; i < mIoThresholdsByAppCategoryType.size(); i++) {
-                long ioThresholdsByAppCategoryTypeToken = proto.start(
-                        OveruseConfigurationCacheDump.THRESHOLDS_BY_APP_CATEGORY);
-                proto.write(IoThresholdByAppCategory.APPLICATION_CATEGORY,
+                long ioThresholdsByAppCategoryTypeToken =
+                        proto.start(OveruseConfigurationCacheDump.THRESHOLDS_BY_APP_CATEGORY);
+                proto.write(
+                        IoThresholdByAppCategory.APPLICATION_CATEGORY,
                         toProtoApplicationCategory(mIoThresholdsByAppCategoryType.keyAt(i)));
                 long perStateBytesToken = proto.start(IoThresholdByAppCategory.THRESHOLD);
                 PerStateBytes perStateBytes = mIoThresholdsByAppCategoryType.valueAt(i);
-                proto.write(PerformanceDump.PerStateBytes.FOREGROUND_BYTES,
+                proto.write(
+                        PerformanceDump.PerStateBytes.FOREGROUND_BYTES,
                         perStateBytes.foregroundBytes);
-                proto.write(PerformanceDump.PerStateBytes.BACKGROUND_BYTES,
+                proto.write(
+                        PerformanceDump.PerStateBytes.BACKGROUND_BYTES,
                         perStateBytes.backgroundBytes);
-                proto.write(PerformanceDump.PerStateBytes.GARAGEMODE_BYTES,
+                proto.write(
+                        PerformanceDump.PerStateBytes.GARAGEMODE_BYTES,
                         perStateBytes.garageModeBytes);
                 proto.end(perStateBytesToken);
                 proto.end(ioThresholdsByAppCategoryTypeToken);
@@ -241,10 +272,9 @@ public final class OveruseConfigurationCache {
             for (int i = 0; i < configs.size(); i++) {
                 ResourceOveruseConfiguration config = configs.get(i);
                 switch (config.componentType) {
-                    case ComponentType.SYSTEM:
-                        mSafeToKillSystemPackages.addAll(config.safeToKillPackages);
-                        break;
-                    case ComponentType.VENDOR:
+                    case ComponentType.SYSTEM ->
+                            mSafeToKillSystemPackages.addAll(config.safeToKillPackages);
+                    case ComponentType.VENDOR -> {
                         mSafeToKillVendorPackages.addAll(config.safeToKillPackages);
                         mVendorPackagePrefixes.addAll(config.vendorPackagePrefixes);
                         for (int j = 0; j < config.packageMetadata.size(); ++j) {
@@ -257,16 +287,18 @@ public final class OveruseConfigurationCache {
                             packages.add(meta.packageName);
                             mPackagesByAppCategoryType.append(meta.appCategoryType, packages);
                         }
-                        break;
-                    default:
+                    }
+                    default -> {
                         // All third-party apps are killable.
-                        break;
+                    }
                 }
                 for (int j = 0; j < config.resourceSpecificConfigurations.size(); ++j) {
                     if (config.resourceSpecificConfigurations.get(j).getTag()
                             == ResourceSpecificConfiguration.ioOveruseConfiguration) {
-                        setIoThresholdsLocked(config.componentType,
-                                config.resourceSpecificConfigurations.get(j)
+                        setIoThresholdsLocked(
+                                config.componentType,
+                                config.resourceSpecificConfigurations
+                                        .get(j)
                                         .getIoOveruseConfiguration());
                     }
                 }
@@ -275,40 +307,42 @@ public final class OveruseConfigurationCache {
     }
 
     /** Returns the threshold for the given package and component type. */
-    public PerStateBytes fetchThreshold(String genericPackageName,
-            @ComponentType int componentType) {
+    public PerStateBytes fetchThreshold(
+            String genericPackageName, @ComponentType int componentType) {
         synchronized (mLock) {
             PerStateBytes threshold = null;
             switch (componentType) {
-                case ComponentType.SYSTEM:
+                case ComponentType.SYSTEM -> {
                     threshold = mIoThresholdsBySystemPackages.get(genericPackageName);
                     if (threshold != null) {
                         return copyPerStateBytes(threshold);
                     }
-                    break;
-                case ComponentType.VENDOR:
+                }
+                case ComponentType.VENDOR -> {
                     threshold = mIoThresholdsByVendorPackages.get(genericPackageName);
                     if (threshold != null) {
                         return copyPerStateBytes(threshold);
                     }
-                    break;
-                default:
-                    // THIRD_PARTY and UNKNOWN components are set with the
-                    // default thresholds.
-                    break;
+                }
+                default -> {
+                    // THIRD_PARTY and UNKNOWN components are set with the default thresholds.
+                }
             }
             threshold = fetchAppCategorySpecificThresholdLocked(genericPackageName);
             if (threshold != null) {
                 return copyPerStateBytes(threshold);
             }
             threshold = mGenericIoThresholdsByComponent.get(componentType);
-            return threshold != null ? copyPerStateBytes(threshold)
+            return threshold != null
+                    ? copyPerStateBytes(threshold)
                     : copyPerStateBytes(DEFAULT_THRESHOLD);
         }
     }
 
     /** Returns whether or not the given package is safe-to-kill on resource overuse. */
-    public boolean isSafeToKill(String genericPackageName, @ComponentType int componentType,
+    public boolean isSafeToKill(
+            String genericPackageName,
+            @ComponentType int componentType,
             List<String> sharedPackages) {
         synchronized (mLock) {
             BiFunction<List<String>, Set<String>, Boolean> isSafeToKillAnyPackage =
@@ -325,12 +359,13 @@ public final class OveruseConfigurationCache {
                     };
 
             switch (componentType) {
-                case ComponentType.SYSTEM:
+                case ComponentType.SYSTEM -> {
                     if (mSafeToKillSystemPackages.contains(genericPackageName)) {
                         return true;
                     }
                     return isSafeToKillAnyPackage.apply(sharedPackages, mSafeToKillSystemPackages);
-                case ComponentType.VENDOR:
+                }
+                case ComponentType.VENDOR -> {
                     if (mSafeToKillVendorPackages.contains(genericPackageName)) {
                         return true;
                     }
@@ -340,11 +375,13 @@ public final class OveruseConfigurationCache {
                      * packages as vendor packages when there is at least one vendor package.
                      */
                     return isSafeToKillAnyPackage.apply(sharedPackages, mSafeToKillSystemPackages)
-                            || isSafeToKillAnyPackage.apply(sharedPackages,
-                            mSafeToKillVendorPackages);
-                default:
+                            || isSafeToKillAnyPackage.apply(
+                                    sharedPackages, mSafeToKillVendorPackages);
+                }
+                default -> {
                     // Third-party apps are always killable
                     return true;
+                }
             }
         }
     }
@@ -370,21 +407,22 @@ public final class OveruseConfigurationCache {
 
     @GuardedBy("mLock")
     private void setIoThresholdsLocked(int componentType, IoOveruseConfiguration ioConfig) {
-        mGenericIoThresholdsByComponent.append(componentType,
-                ioConfig.componentLevelThresholds.perStateWriteBytes);
+        mGenericIoThresholdsByComponent.append(
+                componentType, ioConfig.componentLevelThresholds.perStateWriteBytes);
         switch (componentType) {
-            case ComponentType.SYSTEM:
-                populateThresholdsByPackagesLocked(
-                        ioConfig.packageSpecificThresholds, mIoThresholdsBySystemPackages);
-                break;
-            case ComponentType.VENDOR:
+            case ComponentType.SYSTEM ->
+                    populateThresholdsByPackagesLocked(
+                            ioConfig.packageSpecificThresholds, mIoThresholdsBySystemPackages);
+            case ComponentType.VENDOR -> {
                 populateThresholdsByPackagesLocked(
                         ioConfig.packageSpecificThresholds, mIoThresholdsByVendorPackages);
                 setIoThresholdsByAppCategoryTypeLocked(ioConfig.categorySpecificThresholds);
-                break;
-            default:
-                Slogf.i(TAG, "Ignoring I/O overuse threshold for invalid component type: %d",
-                        componentType);
+            }
+            default ->
+                    Slogf.i(
+                            TAG,
+                            "Ignoring I/O overuse threshold for invalid component type: %d",
+                            componentType);
         }
     }
 
@@ -393,29 +431,29 @@ public final class OveruseConfigurationCache {
             List<PerStateIoOveruseThreshold> thresholds) {
         for (int i = 0; i < thresholds.size(); ++i) {
             PerStateIoOveruseThreshold threshold = thresholds.get(i);
-            switch(threshold.name) {
-                case INTERNAL_APPLICATION_CATEGORY_TYPE_MAPS:
-                    mIoThresholdsByAppCategoryType.append(
-                            ApplicationCategoryType.MAPS, threshold.perStateWriteBytes);
-                    break;
-                case INTERNAL_APPLICATION_CATEGORY_TYPE_MEDIA:
-                    mIoThresholdsByAppCategoryType.append(ApplicationCategoryType.MEDIA,
-                            threshold.perStateWriteBytes);
-                    break;
-                default:
-                    Slogf.i(TAG,
-                            "Ignoring I/O overuse threshold for invalid application category: %s",
-                            threshold.name);
+            switch (threshold.name) {
+                case INTERNAL_APPLICATION_CATEGORY_TYPE_MAPS ->
+                        mIoThresholdsByAppCategoryType.append(
+                                ApplicationCategoryType.MAPS, threshold.perStateWriteBytes);
+                case INTERNAL_APPLICATION_CATEGORY_TYPE_MEDIA ->
+                        mIoThresholdsByAppCategoryType.append(
+                                ApplicationCategoryType.MEDIA, threshold.perStateWriteBytes);
+                default ->
+                        Slogf.i(
+                                TAG,
+                                "Ignoring I/O overuse threshold for invalid application category:"
+                                    + " %s",
+                                threshold.name);
             }
         }
     }
 
     @GuardedBy("mLock")
-    private void populateThresholdsByPackagesLocked(List<PerStateIoOveruseThreshold> thresholds,
+    private void populateThresholdsByPackagesLocked(
+            List<PerStateIoOveruseThreshold> thresholds,
             ArrayMap<String, PerStateBytes> thresholdsByPackages) {
         for (int i = 0; i < thresholds.size(); ++i) {
-            thresholdsByPackages.put(
-                    thresholds.get(i).name, thresholds.get(i).perStateWriteBytes);
+            thresholdsByPackages.put(thresholds.get(i).name, thresholds.get(i).perStateWriteBytes);
         }
     }
 
@@ -430,66 +468,55 @@ public final class OveruseConfigurationCache {
     }
 
     private static String toApplicationCategoryTypeString(@ApplicationCategoryType int type) {
-        switch (type) {
-            case ApplicationCategoryType.MAPS:
-                return "ApplicationCategoryType.MAPS";
-            case ApplicationCategoryType.MEDIA:
-                return "ApplicationCategoryType.MEDIA";
-            case ApplicationCategoryType.OTHERS:
-                return "ApplicationCategoryType.OTHERS";
-            default:
-                return "Invalid ApplicationCategoryType";
-        }
+        return switch (type) {
+            case ApplicationCategoryType.MAPS -> "ApplicationCategoryType.MAPS";
+            case ApplicationCategoryType.MEDIA -> "ApplicationCategoryType.MEDIA";
+            case ApplicationCategoryType.OTHERS -> "ApplicationCategoryType.OTHERS";
+            default -> "Invalid ApplicationCategoryType";
+        };
     }
 
     private static String toComponentTypeString(@ComponentType int type) {
-        switch (type) {
-            case ComponentType.SYSTEM:
-                return "ComponentType.SYSTEM";
-            case ComponentType.VENDOR:
-                return "ComponentType.VENDOR";
-            case ComponentType.THIRD_PARTY:
-                return "ComponentType.THIRD_PARTY";
-            default:
-                return "ComponentType.UNKNOWN";
-        }
+        return switch (type) {
+            case ComponentType.SYSTEM -> "ComponentType.SYSTEM";
+            case ComponentType.VENDOR -> "ComponentType.VENDOR";
+            case ComponentType.THIRD_PARTY -> "ComponentType.THIRD_PARTY";
+            default -> "ComponentType.UNKNOWN";
+        };
     }
 
     private static int toProtoApplicationCategory(@ApplicationCategoryType int type) {
-        switch (type) {
-            case ApplicationCategoryType.MAPS:
-                return PerformanceDump.MAPS;
-            case ApplicationCategoryType.MEDIA:
-                return PerformanceDump.MEDIA;
-            case ApplicationCategoryType.OTHERS:
-                return PerformanceDump.OTHERS;
-            default:
-                return PerformanceDump.APPLICATION_CATEGORY_UNSPECIFIED;
-        }
+        return switch (type) {
+            case ApplicationCategoryType.MAPS -> PerformanceDump.MAPS;
+            case ApplicationCategoryType.MEDIA -> PerformanceDump.MEDIA;
+            case ApplicationCategoryType.OTHERS -> PerformanceDump.OTHERS;
+            default -> PerformanceDump.APPLICATION_CATEGORY_UNSPECIFIED;
+        };
     }
 
     private static int toProtoComponentType(@ComponentType int type) {
-        switch (type) {
-            case ComponentType.SYSTEM:
-                return PerformanceDump.SYSTEM;
-            case ComponentType.VENDOR:
-                return PerformanceDump.VENDOR;
-            case ComponentType.THIRD_PARTY:
-                return PerformanceDump.THIRD_PARTY;
-            default:
-                return PerformanceDump.COMPONENT_TYPE_UNSPECIFIED;
-        }
+        return switch (type) {
+            case ComponentType.SYSTEM -> PerformanceDump.SYSTEM;
+            case ComponentType.VENDOR -> PerformanceDump.VENDOR;
+            case ComponentType.THIRD_PARTY -> PerformanceDump.THIRD_PARTY;
+            default -> PerformanceDump.COMPONENT_TYPE_UNSPECIFIED;
+        };
     }
 
-    private static void dumpPerStateBytes(PerStateBytes perStateBytes,
-            IndentingPrintWriter writer) {
+    private static void dumpPerStateBytes(
+            PerStateBytes perStateBytes, IndentingPrintWriter writer) {
         if (perStateBytes == null) {
             writer.println("{NULL}");
             return;
         }
-        writer.println("{Foreground bytes: " + perStateBytes.foregroundBytes
-                + ", Background bytes: " + perStateBytes.backgroundBytes + ", Garage mode bytes: "
-                + perStateBytes.garageModeBytes + '}');
+        writer.println(
+                "{Foreground bytes: "
+                        + perStateBytes.foregroundBytes
+                        + ", Background bytes: "
+                        + perStateBytes.backgroundBytes
+                        + ", Garage mode bytes: "
+                        + perStateBytes.garageModeBytes
+                        + '}');
     }
 
     private static PerStateBytes constructPerStateBytes(long fgBytes, long bgBytes, long gmBytes) {
