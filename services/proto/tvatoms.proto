@@ -15,8 +15,9 @@
  */
 
 syntax = "proto2";
-option java_multiple_files = true;
 package com.android.server.tv.watchdogservice;
+option java_outer_classname = "AtomsProto";
+option java_package = "com.android.server.tv.watchdogservice";
 
 /**
  * Logs daily I/O usage summary.
@@ -50,3 +51,71 @@ message CarWatchdogPerStateBytes {
     // Number of bytes attributed to the garage mode.
     optional int64 garage_mode_bytes = 3;
 }
+
+/**
+ * Logs I/O overuse stats for a package.
+ *
+ * Keep in sync with proto file at frameworks/proto_logging/stats/atoms.proto
+ */
+message CarWatchdogIoOveruseStats {
+  enum Period {
+    UNKNOWN_PERIOD = 0;
+    DAILY = 1;
+    WEEKLY = 2;
+  }
+
+  // Threshold and usage stats period.
+  optional Period period = 1;
+
+  // Threshold in-terms of write bytes defined for the package.
+  optional CarWatchdogPerStateBytes threshold = 2;
+
+  // Number of write bytes in each state for the specified period.
+  optional CarWatchdogPerStateBytes written_bytes = 3;
+
+  // Application or service uptime during the aforemetioned period.
+  optional uint64 uptime_millis = 4;
+};
+
+/**
+ * Logs I/O usage summary for a time period.
+ *
+ * Keep in sync with proto file at
+ * packages/services/Car/service/src/com/android/car/watchdog/proto/atoms.proto
+ *
+ * Pulled from:
+ *  packages/services/Car/service/src/com/android/car/watchdog/WatchdogPerfHandler.java
+ */
+message CarWatchdogIoUsageSummary {
+  // Summary event time period.
+  optional CarWatchdogEventTimePeriod event_time_period = 1;
+
+  // Daily I/O usage summary for the period. Logs summary entries only for days with I/O usage.
+  // The entries are ordered beginning from the event_time_period.start_time_millis.
+  repeated CarWatchdogDailyIoUsageSummary daily_io_usage_summary = 2;
+}
+
+/**
+ * Logs a car watchdog event's time period.
+ *
+ * Keep in sync with proto file at
+ * packages/services/Car/service/src/com/android/car/watchdog/proto/atoms.proto
+ *
+ * Pulled from:
+ *  packages/services/Car/service/src/com/android/car/watchdog/WatchdogPerfHandler.java
+ */
+message CarWatchdogEventTimePeriod {
+  enum Period {
+    UNKNOWN_PERIOD = 0;
+    WEEKLY = 1;
+    BIWEEKLY = 2;
+    MONTHLY = 3;
+  }
+
+  // Deprecated field - Start time of the event in milliseconds since epoch.
+  optional uint64 start_time_millis = 1 [deprecated = true];
+
+  // Period for the event.
+  optional Period period = 2;
+}
+
