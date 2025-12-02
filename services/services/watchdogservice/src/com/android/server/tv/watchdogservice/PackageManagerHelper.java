@@ -24,7 +24,6 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 
-
 /**
  * Helper class for {@code PackageManager}.
  *
@@ -40,9 +39,12 @@ public class PackageManagerHelper {
     }
 
     /** Check {@link PackageManager#getPackageInfoAsUser(String, int, int)}. */
-    public static PackageInfo getPackageInfoAsUser(@NonNull PackageManager pm,
-            @NonNull String packageName, int packageInfoFlags,
-            @UserIdInt int userId) throws PackageManager.NameNotFoundException {
+    public static PackageInfo getPackageInfoAsUser(
+            @NonNull PackageManager pm,
+            @NonNull String packageName,
+            int packageInfoFlags,
+            @UserIdInt int userId)
+            throws PackageManager.NameNotFoundException {
         return pm.getPackageInfoAsUser(packageName, packageInfoFlags, userId);
     }
 
@@ -81,4 +83,10 @@ public class PackageManagerHelper {
         return (appInfo.privateFlags & ApplicationInfo.PRIVATE_FLAG_SYSTEM_EXT) != 0;
     }
 
+    /** Check {@link PackageManager#getPackageUidAsUser(String, int)}. */
+    public static int getPackageUidAsUser(
+            @NonNull PackageManager pm, @NonNull String packageName, @UserIdInt int userId)
+            throws PackageManager.NameNotFoundException {
+        return pm.getPackageUidAsUser(packageName, userId);
+    }
 }
