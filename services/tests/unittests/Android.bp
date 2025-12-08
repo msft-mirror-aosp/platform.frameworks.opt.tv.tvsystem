@@ -6,41 +6,47 @@ package {
 android_test {
     name: "TvServicesUnitTests",
 
-    // The glob will pick up both of your test files.
     srcs: ["src/**/*.java"],
 
-    // The manifest file we will create in the next step.
     manifest: "AndroidManifest.xml",
 
     // Grant access to internal APIs.
     platform_apis: true,
 
     static_libs: [
-        // The module being tested.
         "tv-services",
 
-        // Core framework libraries required for testing services.
         "services.core",
         "frameworks-base-testutils",
 
-        // Standard testing frameworks.
+        "testables",
+        "android.test.base.stubs",
+
         "junit",
         "mockito-target-minus-junit4",
         "truth",
-        "guava", // For TvWatchdogHelperTest's use of ImmutableSet
+        "guava",
 
-        // AndroidX test libraries.
         "androidx.test.core",
         "androidx.test.ext.junit",
         "androidx.test.rules",
         "androidx.test.runner",
+
+        "platform-test-annotations",
+        "servicestests-utils",
     ],
 
-    // This ensures the test is run as part of standard device testing.
+    libs: [
+        "android.test.base.impl",
+        "android.test.runner.impl",
+        "android.test.mock.impl",
+    ],
+
     test_suites: [
         "device-tests",
     ],
 
     // Required for platform tests.
     certificate: "platform",
+
 }
