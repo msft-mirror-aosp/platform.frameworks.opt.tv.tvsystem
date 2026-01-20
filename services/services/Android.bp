@@ -41,6 +41,8 @@ java_library {
         "tv-services-atoms-java-lite",
     ],
 
+    jarjar_rules: "jarjar-rules.txt",
+
     required: [
         "TvServicesOverlay",
     ],
