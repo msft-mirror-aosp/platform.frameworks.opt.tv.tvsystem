@@ -43,6 +43,15 @@ public final class TvKeyInputManager {
                 }
             }
         }
+
+        @Override
+        public void onVolumeChangeEvent(int type, int count) {
+            synchronized (mLock) {
+                for (int index = 0; index < mCallbacks.size(); index++) {
+                    mCallbacks.get(index).onVolumeChangeEvent(type, count);
+                }
+            }
+        }
     }
 
     public TvKeyInputManager() {
