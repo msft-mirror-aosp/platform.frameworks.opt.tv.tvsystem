@@ -277,4 +277,24 @@ public class TvKeyInputManagerServiceTest {
         verify(mCallback, never()).onVolumeChangeEvent(VolumeEventType.MUTE, 1);
         verify(mCallback).onVolumeChangeEvent(VolumeEventType.UP, 2);
     }
+
+    @Test
+    public void testVolumeDownToZeroIgnoresUnmute() throws Exception {
+        mKeyListener.onKeyEventActivity();
+
+        Intent intentVol = new Intent(AudioManager.ACTION_VOLUME_CHANGED);
+        intentVol.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, 1);
+        intentVol.putExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 0);
+        mVolumeReceiver.onReceive(mContext, intentVol);
+
+        Intent intentUnmute = new Intent(AudioManager.STREAM_MUTE_CHANGED_ACTION);
+        intentUnmute.putExtra(AudioManager.EXTRA_STREAM_VOLUME_MUTED, false);
+        mVolumeReceiver.onReceive(mContext, intentUnmute);
+
+        mTestLooper.moveTimeForward(VALIDATION_WINDOW_MS + 10);
+        mTestLooper.dispatchAll();
+
+        verify(mCallback).onVolumeChangeEvent(VolumeEventType.DOWN, 1);
+        verify(mCallback, never()).onVolumeChangeEvent(VolumeEventType.UNMUTE, 1);
+    }
 }

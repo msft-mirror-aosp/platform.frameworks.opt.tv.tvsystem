@@ -90,6 +90,9 @@ public class TvKeyInputManagerService extends SystemService {
     @GuardedBy("mLock")
     private int mStashedVolumeCount = 0;
 
+    @GuardedBy("mLock")
+    private int mLastVolumeLevel = -1;
+
     private final Handler mHandler;
     private final Runnable mBroadcastRunnable = this::broadcastVolumeEvent;
 
@@ -234,6 +237,7 @@ public class TvKeyInputManagerService extends SystemService {
                         Log.v(TAG, "Volume change: old=" + oldVol + ", new=" + newVol);
                     }
                     if (newVol != -1 && oldVol != -1) {
+                        mLastVolumeLevel = newVol;
                         if (newVol > oldVol) {
                             type = VolumeEventType.UP;
                             change = newVol - oldVol;
@@ -260,8 +264,15 @@ public class TvKeyInputManagerService extends SystemService {
                 }
 
                 if (type == VolumeEventType.MUTE || type == VolumeEventType.UNMUTE) {
-                    // MUTE/UNMUTE actions always post 5 times each mute key pressed
-                    // Check if we are in the middle of a volume change burst
+                    // Ignore UNMUTE if volume is 0
+                    if (type == VolumeEventType.UNMUTE && mLastVolumeLevel == 0) {
+                        if (DEBUG) Log.v(TAG, "Ignoring UNMUTE event because volume is 0");
+                        return;
+                    }
+
+                    // Resolve Volume down key press to zero edge case
+                    // See detailed docs for this edge case at:
+                    // http://docs/document/d/1mST2VS0dpsMAaISt3ANgwXgIaLNoCRcoUf7ELVh1tcs
                     if ((mLastVolumeDirection == VolumeEventType.UP
                             || mLastVolumeDirection == VolumeEventType.DOWN)
                             && mHandler.hasCallbacks(mBroadcastRunnable)) {
@@ -270,10 +281,10 @@ public class TvKeyInputManagerService extends SystemService {
                         mStashedVolumeCount = mCumulativeVolumeCount;
                     }
 
-                    // MUTE/UNMUTE events also need debouncing because the system broadcast
-                    // multiple times
-                    if (type == mLastVolumeDirection && mHandler.hasCallbacks(mBroadcastRunnable)) {
-                        if (DEBUG) Log.v(TAG, "Ignoring duplicate MUTE/UNMUTE event (debouncing)");
+                    // Filter by stream type. We only care about MUSIC stream (3).
+                    int streamType = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, -1);
+                    if (streamType != AudioManager.STREAM_MUSIC) {
+                        if (DEBUG) Log.v(TAG, "Ignoring volume event for stream type: " + streamType);
                         return;
                     }
 
@@ -542,6 +553,7 @@ public class TvKeyInputManagerService extends SystemService {
                 writer.printf(" mLastVolumeDirection: %d\n", mLastVolumeDirection);
                 writer.printf(" mStashedVolumeDirection: %d\n", mStashedVolumeDirection);
                 writer.printf(" mStashedVolumeCount: %d\n", mStashedVolumeCount);
+                writer.printf(" mLastVolumeLevel: %d\n", mLastVolumeLevel);
             }
             writer.println("============ End of TV Input Manager Service Dump ============");
         }
