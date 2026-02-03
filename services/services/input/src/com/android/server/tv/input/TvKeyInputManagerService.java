@@ -32,6 +32,7 @@ import android.os.RemoteException;
 import android.util.Log;
 
 import com.android.internal.annotations.GuardedBy;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.DumpUtils;
 import com.android.server.SystemService;
 
@@ -67,7 +68,7 @@ public class TvKeyInputManagerService extends SystemService {
      * Receiver for volume change events
      */
     private final VolumeBroadcastReceiver mVolumeReceiver = new VolumeBroadcastReceiver();
-    private final Executor mExecutor = Executors.newSingleThreadExecutor();
+    private final Executor mExecutor;
     private InputManager mInputManager;
     private ActivityManager mActivityManager;
     private boolean mIsListeningToInputManager = false;
@@ -89,12 +90,21 @@ public class TvKeyInputManagerService extends SystemService {
     @GuardedBy("mLock")
     private int mStashedVolumeCount = 0;
 
-    private final Handler mHandler = new Handler(Looper.getMainLooper());
-
+    private final Handler mHandler;
     private final Runnable mBroadcastRunnable = this::broadcastVolumeEvent;
 
+    @VisibleForTesting
+    final BinderService mBinderService = new BinderService();
+
     public TvKeyInputManagerService(Context context) {
+        this(context, Looper.getMainLooper(), Executors.newSingleThreadExecutor());
+    }
+
+    @VisibleForTesting
+    TvKeyInputManagerService(Context context, Looper looper, Executor executor) {
         super(context);
+        mHandler = new Handler(looper);
+        mExecutor = executor;
     }
 
     @Override
@@ -102,11 +112,36 @@ public class TvKeyInputManagerService extends SystemService {
         Log.i(TAG, "Starting TV Input Manager Service");
         mInputManager = getContext().getSystemService(InputManager.class);
         mActivityManager = getContext().getSystemService(ActivityManager.class);
-        publishBinderService(ITvKeyInputManagerService.NAME, new BinderService());
+        publishBinderService(ITvKeyInputManagerService.NAME, mBinderService);
     }
 
-    private class TvKeyEventActivityCallbackHandler
-            extends RemoteCallbackList<ITvKeyEventActivityCallback> {
+    @VisibleForTesting
+    protected long getCurrentTimeMillis() {
+        return System.currentTimeMillis();
+    }
+
+    @VisibleForTesting
+    protected boolean registerInputManagerListener(KeyEventActivityListener listener) {
+        if (mInputManager != null) {
+            return mInputManager.registerKeyEventActivityListener(listener);
+        }
+        return false;
+    }
+
+    @VisibleForTesting
+    protected void unregisterInputManagerListener(KeyEventActivityListener listener) {
+        if (mInputManager != null) {
+            mInputManager.unregisterKeyEventActivityListener(listener);
+        }
+    }
+
+    @VisibleForTesting
+    protected void setActivityManager(ActivityManager activityManager) {
+        mActivityManager = activityManager;
+    }
+
+    private class TvKeyEventActivityCallbackHandler extends
+            RemoteCallbackList<ITvKeyEventActivityCallback> {
         @Override
         public void onCallbackDied(ITvKeyEventActivityCallback callback, Object cookie) {
             Log.i(TAG, "Client binder died.");
@@ -124,7 +159,7 @@ public class TvKeyInputManagerService extends SystemService {
         public void onKeyEventActivity() {
 
             synchronized (mLock) {
-                long now = System.currentTimeMillis();
+                long now = getCurrentTimeMillis();
                 if (now - mLastValidInputTime >= VALIDATION_WINDOW_MS) {
                     mCumulativeVolumeCount = 0;
                     mLastVolumeDirection = VolumeEventType.UNDEFINED;
@@ -171,7 +206,7 @@ public class TvKeyInputManagerService extends SystemService {
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
-            final long now = System.currentTimeMillis();
+            final long now = getCurrentTimeMillis();
             int type = VolumeEventType.UNDEFINED;
 
             if (DEBUG) Log.v(TAG, "VolumeBroadcastReceiver received action: " + action);
@@ -222,7 +257,6 @@ public class TvKeyInputManagerService extends SystemService {
 
                 if (type == VolumeEventType.UNDEFINED) {
                     if (DEBUG) Log.v(TAG, "Volume event type is UNDEFINED. Ignoring.");
-                    return;
                 }
 
                 if (type == VolumeEventType.MUTE || type == VolumeEventType.UNMUTE) {
@@ -249,88 +283,84 @@ public class TvKeyInputManagerService extends SystemService {
                     mLastVolumeDirection = type;
                     mHandler.removeCallbacks(mBroadcastRunnable);
                     mHandler.postDelayed(mBroadcastRunnable, MUTE_DEBOUNCE_MS);
-                    return;
-                }
 
-                // If we receive a volume change event, and there is a pending MUTE/UNMUTE event,
-                // it means the MUTE/UNMUTE was likely a side effect of the volume change (e.g.
-                // unmuting when volume up from 0).
-                // In this case, we should cancel the pending MUTE/UNMUTE broadcast and proceed
-                // with the volume change.
-                if ((mLastVolumeDirection == VolumeEventType.MUTE
-                        || mLastVolumeDirection == VolumeEventType.UNMUTE)
-                        && mHandler.hasCallbacks(mBroadcastRunnable)) {
-                    if (DEBUG) {
-                        Log.v(TAG,
-                                "Cancelling pending MUTE/UNMUTE event due to incoming volume "
-                                        + "change");
-                    }
-                    mHandler.removeCallbacks(mBroadcastRunnable);
+                } else {
+                    // If we receive a volume change event, and there is a pending MUTE/UNMUTE
+                    // event, it means the MUTE/UNMUTE was likely a side effect of the volume
+                    // change (e.g. unmuting when volume up from 0).
+                    // In this case, we should cancel the pending MUTE/UNMUTE broadcast and
+                    // proceed with the volume change.
+                    if ((mLastVolumeDirection == VolumeEventType.MUTE
+                            || mLastVolumeDirection == VolumeEventType.UNMUTE)
+                            && mHandler.hasCallbacks(mBroadcastRunnable)) {
+                        if (DEBUG) {
+                            Log.v(TAG,
+                                    "Cancelling pending MUTE/UNMUTE event due to incoming volume "
+                                            + "change");
+                        }
+                        mHandler.removeCallbacks(mBroadcastRunnable);
 
-                    if (mStashedVolumeDirection == VolumeEventType.UNDEFINED) {
-                        // No stash, then reset
-                        mCumulativeVolumeCount = 0;
-                        mLastVolumeDirection = VolumeEventType.UNDEFINED;
-                    } else {
-                        // have a stashed volume event
-                        if (mStashedVolumeDirection == type) {
-                            // Restore stash
-                            mLastVolumeDirection = mStashedVolumeDirection;
-                            mCumulativeVolumeCount = mStashedVolumeCount;
-                            if (DEBUG) {
-                                Log.v(TAG,
-                                        "Restored stashed volume event: Type="
-                                                + mLastVolumeDirection
-                                                + ", Count=" + mCumulativeVolumeCount);
+                        if (mStashedVolumeDirection != VolumeEventType.UNDEFINED) {
+                            if (mStashedVolumeDirection == type) {
+                                // Restore stash
+                                mLastVolumeDirection = mStashedVolumeDirection;
+                                mCumulativeVolumeCount = mStashedVolumeCount;
+                                if (DEBUG) {
+                                    Log.v(TAG, "Restored stashed volume event: Type="
+                                            + mLastVolumeDirection + ", Count="
+                                            + mCumulativeVolumeCount);
+                                }
+                            } else {
+                                // Direction changed from stash. Broadcast stash first.
+                                mLastVolumeDirection = mStashedVolumeDirection;
+                                mCumulativeVolumeCount = mStashedVolumeCount;
+                                mStashedVolumeDirection = VolumeEventType.UNDEFINED;
+                                mStashedVolumeCount = 0;
+                                broadcastVolumeEvent();
+
+                                // Reset state for new direction
+                                mCumulativeVolumeCount = 0;
+                                mLastVolumeDirection = VolumeEventType.UNDEFINED;
                             }
-                        } else {
-                            // Direction changed from stash. Broadcast stash first.
-                            mLastVolumeDirection = mStashedVolumeDirection;
-                            mCumulativeVolumeCount = mStashedVolumeCount;
+                            // Clear stash if it was restored
                             mStashedVolumeDirection = VolumeEventType.UNDEFINED;
                             mStashedVolumeCount = 0;
-                            broadcastVolumeEvent();
-
-                            // Reset state for new direction
+                        } else {
                             mCumulativeVolumeCount = 0;
                             mLastVolumeDirection = VolumeEventType.UNDEFINED;
                         }
-                        // Clear stash if it was restored
-                        mStashedVolumeDirection = VolumeEventType.UNDEFINED;
-                        mStashedVolumeCount = 0;
                     }
-                }
 
-                if (type == mLastVolumeDirection) {
-                    mCumulativeVolumeCount += change;
-                    if (DEBUG) {
-                        Log.v(TAG, "Accumulating volume change: Type=" + type + ", Count="
-                                + mCumulativeVolumeCount);
-                    }
-                    // Schedule broadcast for coalescing
-                    mHandler.removeCallbacks(mBroadcastRunnable);
-                    mHandler.postDelayed(mBroadcastRunnable, VALIDATION_WINDOW_MS);
-                } else {
-                    // Direction changed or first event
-                    // If there was a pending broadcast for the previous direction,
-                    // send it immediately
-                    if (mHandler.hasCallbacks(mBroadcastRunnable)) {
-                        if (DEBUG) Log.v(TAG, "Direction changed. Flushing pending broadcast.");
+                    if (type == mLastVolumeDirection) {
+                        mCumulativeVolumeCount += change;
+                        if (DEBUG) {
+                            Log.v(TAG, "Accumulating volume change: Type=" + type + ", Count="
+                                    + mCumulativeVolumeCount);
+                        }
+                        // Schedule broadcast for coalescing
                         mHandler.removeCallbacks(mBroadcastRunnable);
-                        broadcastVolumeEvent(); // Broadcast the previous accumulated event
-                    }
+                        mHandler.postDelayed(mBroadcastRunnable, VALIDATION_WINDOW_MS);
+                    } else {
+                        // Direction changed or first event
+                        // If there was a pending broadcast for the previous direction,
+                        // send it immediately
+                        if (mHandler.hasCallbacks(mBroadcastRunnable)) {
+                            if (DEBUG) Log.v(TAG, "Direction changed. Flushing pending broadcast.");
+                            mHandler.removeCallbacks(mBroadcastRunnable);
+                            broadcastVolumeEvent(); // Broadcast the previous accumulated event
+                        }
 
-                    // Start new accumulation for the new direction
-                    mCumulativeVolumeCount = change;
-                    mLastVolumeDirection = type;
-                    if (DEBUG) {
-                        Log.v(TAG,
-                                "Starting new volume accumulation: Type=" + type + ", Count="
-                                        + mCumulativeVolumeCount);
-                    }
+                        // Start new accumulation for the new direction
+                        mCumulativeVolumeCount = change;
+                        mLastVolumeDirection = type;
+                        if (DEBUG) {
+                            Log.v(TAG, "Starting new volume accumulation: Type=" + type + ", Count="
+                                    + mCumulativeVolumeCount);
+                        }
 
-                    // Schedule broadcast for the new direction
-                    mHandler.postDelayed(mBroadcastRunnable, VALIDATION_WINDOW_MS);
+                        // Schedule broadcast for the new direction
+                        mHandler.postDelayed(mBroadcastRunnable, VALIDATION_WINDOW_MS);
+                    }
                 }
             }
         }
@@ -362,19 +392,16 @@ public class TvKeyInputManagerService extends SystemService {
         // Broadcast stashed event if exists
         if (stashedType != VolumeEventType.UNDEFINED && stashedCount > 0) {
             if (DEBUG) {
-                Log.v(TAG,
-                        "Broadcasting volume event: Type: " + stashedType + ", Count: "
-                                + stashedCount);
+                Log.v(TAG, "Broadcasting volume event: Type: " + stashedType + ", Count: "
+                        + stashedCount);
             }
             performBroadcast(stashedType, stashedCount);
         }
 
         if (type == VolumeEventType.UNDEFINED || count == 0) {
             if (DEBUG) {
-                Log.v(TAG,
-                        "broadcastVolumeEvent: Nothing to broadcast (Type=" + type + ", Count="
-                                + count
-                                + ")");
+                Log.v(TAG, "broadcastVolumeEvent: Nothing to broadcast (Type=" + type + ", Count="
+                        + count + ")");
             }
             return;
         }
@@ -394,10 +421,9 @@ public class TvKeyInputManagerService extends SystemService {
                 synchronized (mCallbacks) {
                     clientUid = mCallbackUids.get(callback.asBinder());
                 }
-                if (clientUid == null || !isUidInForeground(clientUid)) {
-                    continue;
+                if (clientUid != null && isUidInForeground(clientUid)) {
+                    callback.onVolumeChangeEvent(type, count);
                 }
-                callback.onVolumeChangeEvent(type, count);
             } catch (RemoteException e) {
                 Log.w(TAG, "Failed to broadcast onVolumeChangeEvent", e);
             }
@@ -410,63 +436,51 @@ public class TvKeyInputManagerService extends SystemService {
         final boolean isForeground =
                 importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
         if (DEBUG) {
-            Log.v(
-                    TAG,
-                    "UID "
-                            + uid
-                            + " has importance: "
-                            + importance
-                            + " (isForeground="
-                            + isForeground
-                            + ")");
+            Log.v(TAG, "UID " + uid + " has importance: " + importance + " (isForeground="
+                    + isForeground + ")");
         }
         return isForeground;
     }
 
     private void startListeningToInputManager() {
-        mExecutor.execute(
-                () -> {
-                    synchronized (mCallbacks) {
-                        if (!mIsListeningToInputManager
-                                && mInputManager != null
-                                && mCallbacks.getRegisteredCallbackCount() > 0) {
-                            if (mInputManager.registerKeyEventActivityListener(mLocalListener)) {
-                                mIsListeningToInputManager = true;
-                                if (DEBUG) Log.v(TAG, "Successfully registered with InputManager.");
+        mExecutor.execute(() -> {
+            synchronized (mCallbacks) {
+                if (!mIsListeningToInputManager && mCallbacks.getRegisteredCallbackCount() > 0) {
+                    if (registerInputManagerListener(mLocalListener)) {
+                        mIsListeningToInputManager = true;
+                        if (DEBUG) Log.v(TAG, "Successfully registered with InputManager.");
 
-                                IntentFilter filter = new IntentFilter();
-                                filter.addAction(AudioManager.ACTION_VOLUME_CHANGED);
-                                filter.addAction(AudioManager.STREAM_MUTE_CHANGED_ACTION);
-                                getContext().registerReceiver(mVolumeReceiver, filter);
-                            } else {
-                                Log.e(TAG, "Failed to register listener with InputManager.");
-                            }
-                        }
+                        IntentFilter filter = new IntentFilter();
+                        filter.addAction(AudioManager.ACTION_VOLUME_CHANGED);
+                        filter.addAction(AudioManager.STREAM_MUTE_CHANGED_ACTION);
+                        getContext().registerReceiver(mVolumeReceiver, filter);
+                    } else {
+                        Log.e(TAG, "Failed to register listener with InputManager.");
                     }
-                });
+                }
+            }
+        });
     }
 
     private void stopListeningToInputManager() {
-        mExecutor.execute(
-                () -> {
-                    synchronized (mCallbacks) { // Synchronize access
-                        if (mIsListeningToInputManager
-                                && mInputManager != null
-                                && mCallbacks.getRegisteredCallbackCount() == 0) {
-                            if (DEBUG) Log.v(TAG, "Unregistering listener from InputManager");
-                            mInputManager.unregisterKeyEventActivityListener(mLocalListener);
-                            try {
-                                getContext().unregisterReceiver(mVolumeReceiver);
-                            } catch (IllegalArgumentException e) {
-                                // Ignore
-                            }
-                            mIsListeningToInputManager = false;
-                        }
+        mExecutor.execute(() -> {
+            synchronized (mCallbacks) { // Synchronize access
+                if (mIsListeningToInputManager && mCallbacks.getRegisteredCallbackCount() == 0) {
+                    if (DEBUG) Log.v(TAG, "Unregistering listener from InputManager");
+                    unregisterInputManagerListener(mLocalListener);
+                    try {
+                        getContext().unregisterReceiver(mVolumeReceiver);
+                    } catch (IllegalArgumentException e) {
+                        // Ignore
                     }
-                });
+                    mIsListeningToInputManager = false;
+                }
+            }
+        });
     }
 
-    private final class BinderService extends ITvKeyInputManagerService.Stub {
+    @VisibleForTesting
+    final class BinderService extends ITvKeyInputManagerService.Stub {
         @Override
         public void registerCallback(ITvKeyEventActivityCallback callback, int clientUid)
                 throws RemoteException {
@@ -481,10 +495,8 @@ public class TvKeyInputManagerService extends SystemService {
                 // Store the client UID associated with this callback's binder
                 mCallbackUids.put(callback.asBinder(), clientUid);
                 if (DEBUG) {
-                    Log.v(
-                            TAG,
-                            "Callback registered. Count: "
-                                    + mCallbacks.getRegisteredCallbackCount());
+                    Log.v(TAG, "Callback registered. Count: "
+                            + mCallbacks.getRegisteredCallbackCount());
                 }
                 if (prepareToStartListening && mCallbacks.getRegisteredCallbackCount() > 0) {
                     startListeningToInputManager();
@@ -505,12 +517,8 @@ public class TvKeyInputManagerService extends SystemService {
                 mCallbackUids.remove(callback.asBinder());
                 boolean wasRegistered = mCallbacks.unregister(callback);
                 if (DEBUG) {
-                    Log.v(
-                            TAG,
-                            "Callback unregistered ("
-                                    + wasRegistered
-                                    + "). Count: "
-                                    + mCallbacks.getRegisteredCallbackCount());
+                    Log.v(TAG, "Callback unregistered (" + wasRegistered + "). Count: "
+                            + mCallbacks.getRegisteredCallbackCount());
                 }
                 if (wasRegistered && mCallbacks.getRegisteredCallbackCount() == 0) {
                     stopListeningToInputManager();
@@ -523,11 +531,9 @@ public class TvKeyInputManagerService extends SystemService {
             if (!DumpUtils.checkDumpPermission(getContext(), TAG, writer)) return;
             writer.println("============ Beginning of TV Input Manager Service Dump ============");
             synchronized (mCallbacks) {
-                writer.printf(
-                        " mIsListeningToInputManager: %s\n",
+                writer.printf(" mIsListeningToInputManager: %s\n",
                         mIsListeningToInputManager ? "yes" : "no");
-                writer.printf(
-                        " mCallbacks.getRegisteredCallbackCount(): %d\n",
+                writer.printf(" mCallbacks.getRegisteredCallbackCount(): %d\n",
                         mCallbacks.getRegisteredCallbackCount());
             }
             synchronized (mLock) {
