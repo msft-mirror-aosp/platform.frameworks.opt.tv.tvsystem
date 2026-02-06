@@ -51,10 +51,9 @@ java_library {
         enabled: true,
         optimize: true,
         shrink: true,
-        proguard_compatibility: true,
         proguard_flags_files: [
             "proguard.flags",
         ],
-        ignore_library_extends_program: true,
+        ignore_warnings: false,
     },
 }
