@@ -24,7 +24,6 @@ java_sdk_library {
     ],
     api_packages: [
         "com.android.tv.tvservices.client.input",
-        "com.android.tv.tvservices.client.media",
     ],
     // Use a different dir for the time being to bypass API review while it's not a SDK APIs
     api_dir: "tvservicesapi",
