@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 
 import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
@@ -146,6 +147,7 @@ public class TvKeyInputManagerServiceTest {
         Intent intent = new Intent(AudioManager.ACTION_VOLUME_CHANGED);
         intent.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, 10);
         intent.putExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 15);
+        intent.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
         mVolumeReceiver.onReceive(mContext, intent);
 
         // Advance looper to process the delayed broadcast
@@ -164,6 +166,7 @@ public class TvKeyInputManagerServiceTest {
         Intent intent = new Intent(AudioManager.ACTION_VOLUME_CHANGED);
         intent.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, 10);
         intent.putExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 15);
+        intent.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
         mVolumeReceiver.onReceive(mContext, intent);
 
         mTestLooper.dispatchAll();
@@ -176,6 +179,7 @@ public class TvKeyInputManagerServiceTest {
         Intent intent = new Intent(AudioManager.ACTION_VOLUME_CHANGED);
         intent.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, 10);
         intent.putExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 15);
+        intent.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
         mVolumeReceiver.onReceive(mContext, intent);
 
         mTestLooper.dispatchAll();
@@ -191,6 +195,7 @@ public class TvKeyInputManagerServiceTest {
             Intent intent = new Intent(AudioManager.ACTION_VOLUME_CHANGED);
             intent.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, 10 - i);
             intent.putExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 9 - i);
+            intent.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
             mVolumeReceiver.onReceive(mContext, intent);
         }
 
@@ -206,6 +211,7 @@ public class TvKeyInputManagerServiceTest {
 
         Intent intent = new Intent(AudioManager.STREAM_MUTE_CHANGED_ACTION);
         intent.putExtra(AudioManager.EXTRA_STREAM_VOLUME_MUTED, true);
+        intent.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
         mVolumeReceiver.onReceive(mContext, intent);
 
         mTestLooper.moveTimeForward(MUTE_DEBOUNCE_MS + 10);
@@ -220,10 +226,12 @@ public class TvKeyInputManagerServiceTest {
 
         Intent intentMute = new Intent(AudioManager.STREAM_MUTE_CHANGED_ACTION);
         intentMute.putExtra(AudioManager.EXTRA_STREAM_VOLUME_MUTED, true);
+        intentMute.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
         mVolumeReceiver.onReceive(mContext, intentMute);
 
         Intent intentUnmute = new Intent(AudioManager.STREAM_MUTE_CHANGED_ACTION);
         intentUnmute.putExtra(AudioManager.EXTRA_STREAM_VOLUME_MUTED, false);
+        intentUnmute.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
         mVolumeReceiver.onReceive(mContext, intentUnmute);
 
         mTestLooper.moveTimeForward(MUTE_DEBOUNCE_MS + 10);
@@ -239,11 +247,13 @@ public class TvKeyInputManagerServiceTest {
 
         Intent intentMute = new Intent(AudioManager.STREAM_MUTE_CHANGED_ACTION);
         intentMute.putExtra(AudioManager.EXTRA_STREAM_VOLUME_MUTED, true);
+        intentMute.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
         mVolumeReceiver.onReceive(mContext, intentMute);
 
         Intent intentVol = new Intent(AudioManager.ACTION_VOLUME_CHANGED);
         intentVol.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, 0);
         intentVol.putExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 1);
+        intentVol.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
         mVolumeReceiver.onReceive(mContext, intentVol);
 
         mTestLooper.moveTimeForward(VALIDATION_WINDOW_MS + 10);
@@ -260,15 +270,18 @@ public class TvKeyInputManagerServiceTest {
         Intent intentVol1 = new Intent(AudioManager.ACTION_VOLUME_CHANGED);
         intentVol1.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, 10);
         intentVol1.putExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 11);
+        intentVol1.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
         mVolumeReceiver.onReceive(mContext, intentVol1);
 
         Intent intentMute = new Intent(AudioManager.STREAM_MUTE_CHANGED_ACTION);
         intentMute.putExtra(AudioManager.EXTRA_STREAM_VOLUME_MUTED, true);
+        intentMute.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
         mVolumeReceiver.onReceive(mContext, intentMute);
 
         Intent intentVol2 = new Intent(AudioManager.ACTION_VOLUME_CHANGED);
         intentVol2.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, 11);
         intentVol2.putExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 12);
+        intentVol2.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
         mVolumeReceiver.onReceive(mContext, intentVol2);
 
         mTestLooper.moveTimeForward(VALIDATION_WINDOW_MS + 10);
@@ -285,10 +298,12 @@ public class TvKeyInputManagerServiceTest {
         Intent intentVol = new Intent(AudioManager.ACTION_VOLUME_CHANGED);
         intentVol.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, 1);
         intentVol.putExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 0);
+        intentVol.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
         mVolumeReceiver.onReceive(mContext, intentVol);
 
         Intent intentUnmute = new Intent(AudioManager.STREAM_MUTE_CHANGED_ACTION);
         intentUnmute.putExtra(AudioManager.EXTRA_STREAM_VOLUME_MUTED, false);
+        intentUnmute.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
         mVolumeReceiver.onReceive(mContext, intentUnmute);
 
         mTestLooper.moveTimeForward(VALIDATION_WINDOW_MS + 10);
@@ -296,5 +311,89 @@ public class TvKeyInputManagerServiceTest {
 
         verify(mCallback).onVolumeChangeEvent(VolumeEventType.DOWN, 1);
         verify(mCallback, never()).onVolumeChangeEvent(VolumeEventType.UNMUTE, 1);
+    }
+
+    @Test
+    public void testPrivacyGuardrail_BackgroundApp() throws Exception {
+        // Simulate app going to background
+        when(mActivityManager.getUidImportance(TEST_UID))
+                .thenReturn(ActivityManager.RunningAppProcessInfo.IMPORTANCE_BACKGROUND);
+
+        mKeyListener.onKeyEventActivity();
+
+        Intent intent = new Intent(AudioManager.ACTION_VOLUME_CHANGED);
+        intent.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, 10);
+        intent.putExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 15);
+        intent.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
+        mVolumeReceiver.onReceive(mContext, intent);
+
+        mTestLooper.moveTimeForward(VALIDATION_WINDOW_MS + 10);
+        mTestLooper.dispatchAll();
+
+        verify(mCallback, never()).onVolumeChangeEvent(anyInt(), anyInt());
+    }
+
+    @Test
+    public void testDirectionChangeFlush() throws Exception {
+        mKeyListener.onKeyEventActivity();
+
+        // Volume UP
+        Intent intentUp = new Intent(AudioManager.ACTION_VOLUME_CHANGED);
+        intentUp.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, 10);
+        intentUp.putExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 11);
+        intentUp.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
+        mVolumeReceiver.onReceive(mContext, intentUp);
+
+        // Volume DOWN immediately
+        Intent intentDown = new Intent(AudioManager.ACTION_VOLUME_CHANGED);
+        intentDown.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, 11);
+        intentDown.putExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 10);
+        intentDown.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
+        mVolumeReceiver.onReceive(mContext, intentDown);
+
+        // Should flush UP immediately, then schedule DOWN
+        verify(mCallback).onVolumeChangeEvent(VolumeEventType.UP, 1);
+
+        mTestLooper.moveTimeForward(VALIDATION_WINDOW_MS + 10);
+        mTestLooper.dispatchAll();
+
+        verify(mCallback).onVolumeChangeEvent(VolumeEventType.DOWN, 1);
+    }
+
+    @Test
+    public void testStashConflictResolution() throws Exception {
+        mKeyListener.onKeyEventActivity();
+
+        // Volume UP (stashed)
+        Intent intentUp = new Intent(AudioManager.ACTION_VOLUME_CHANGED);
+        intentUp.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, 10);
+        intentUp.putExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 11);
+        intentUp.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
+        mVolumeReceiver.onReceive(mContext, intentUp);
+
+        // Mute (triggers stash of UP)
+        Intent intentMute = new Intent(AudioManager.STREAM_MUTE_CHANGED_ACTION);
+        intentMute.putExtra(AudioManager.EXTRA_STREAM_VOLUME_MUTED, true);
+        intentMute.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
+        mVolumeReceiver.onReceive(mContext, intentMute);
+
+        // Volume DOWN (conflicts with stashed UP)
+        Intent intentDown = new Intent(AudioManager.ACTION_VOLUME_CHANGED);
+        intentDown.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, 11);
+        intentDown.putExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 10);
+        intentDown.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
+        mVolumeReceiver.onReceive(mContext, intentDown);
+
+        // Should flush stashed UP immediately
+        verify(mCallback).onVolumeChangeEvent(VolumeEventType.UP, 1);
+
+        // Mute should be cancelled
+        verify(mCallback, never()).onVolumeChangeEvent(VolumeEventType.MUTE, 1);
+
+        mTestLooper.moveTimeForward(VALIDATION_WINDOW_MS + 10);
+        mTestLooper.dispatchAll();
+
+        // Should broadcast DOWN
+        verify(mCallback).onVolumeChangeEvent(VolumeEventType.DOWN, 1);
     }
 }

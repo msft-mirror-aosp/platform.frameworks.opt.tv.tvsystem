@@ -214,6 +214,12 @@ public class TvKeyInputManagerService extends SystemService {
 
             if (DEBUG) Log.v(TAG, "VolumeBroadcastReceiver received action: " + action);
 
+            int flushStashedType = VolumeEventType.UNDEFINED;
+            int flushStashedCount = 0;
+            int flushRegType = VolumeEventType.UNDEFINED;
+            int flushRegCount = 0;
+            boolean requiresFlush = false;
+
             synchronized (mLock) {
                 if (now - mLastValidInputTime >= VALIDATION_WINDOW_MS) {
                     if (DEBUG) Log.v(TAG, "Validation window expired. Ignoring volume event.");
@@ -284,7 +290,10 @@ public class TvKeyInputManagerService extends SystemService {
                     // Filter by stream type. We only care about MUSIC stream (3).
                     int streamType = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, -1);
                     if (streamType != AudioManager.STREAM_MUSIC) {
-                        if (DEBUG) Log.v(TAG, "Ignoring volume event for stream type: " + streamType);
+                        if (DEBUG) {
+                            Log.v(TAG,
+                                    "Ignoring volume event for stream type: " + streamType);
+                        }
                         return;
                     }
 
@@ -327,7 +336,12 @@ public class TvKeyInputManagerService extends SystemService {
                                 mCumulativeVolumeCount = mStashedVolumeCount;
                                 mStashedVolumeDirection = VolumeEventType.UNDEFINED;
                                 mStashedVolumeCount = 0;
-                                broadcastVolumeEvent();
+
+                                // plan to broadcastVolumeEvent();
+                                flushRegType = mLastVolumeDirection;
+                                flushRegCount = mCumulativeVolumeCount;
+                                mLastVolumeDirection = VolumeEventType.UNDEFINED;
+                                requiresFlush = true;
 
                                 // Reset state for new direction
                                 mCumulativeVolumeCount = 0;
@@ -358,7 +372,19 @@ public class TvKeyInputManagerService extends SystemService {
                         if (mHandler.hasCallbacks(mBroadcastRunnable)) {
                             if (DEBUG) Log.v(TAG, "Direction changed. Flushing pending broadcast.");
                             mHandler.removeCallbacks(mBroadcastRunnable);
-                            broadcastVolumeEvent(); // Broadcast the previous accumulated event
+
+                            if (mStashedVolumeDirection != VolumeEventType.UNDEFINED) {
+                                flushStashedType = mStashedVolumeDirection;
+                                flushStashedCount = mStashedVolumeCount;
+                                mStashedVolumeDirection = VolumeEventType.UNDEFINED;
+                                mStashedVolumeCount = 0;
+                            }
+
+                            // plan to  broadcastVolumeEvent();
+                            flushRegType = mLastVolumeDirection;
+                            flushRegCount = mCumulativeVolumeCount;
+                            mLastVolumeDirection = VolumeEventType.UNDEFINED;
+                            requiresFlush = true;
                         }
 
                         // Start new accumulation for the new direction
@@ -373,6 +399,23 @@ public class TvKeyInputManagerService extends SystemService {
                         mHandler.postDelayed(mBroadcastRunnable, VALIDATION_WINDOW_MS);
                     }
                 }
+            }
+
+            // mLock release, start broadcasting
+            if (requiresFlush) {
+                final int finalFlushStashedType = flushStashedType;
+                final int finalFlushStashedCount = flushStashedCount;
+                final int finalFlushRegType = flushRegType;
+                final int finalFlushRegCount = flushRegCount;
+                mExecutor.execute(() -> {
+                    if (finalFlushStashedType != VolumeEventType.UNDEFINED
+                            && finalFlushStashedCount > 0) {
+                        performBroadcast(finalFlushStashedType, finalFlushStashedCount);
+                    }
+                    if (finalFlushRegType != VolumeEventType.UNDEFINED && finalFlushRegCount > 0) {
+                        performBroadcast(finalFlushRegType, finalFlushRegCount);
+                    }
+                });
             }
         }
     }
