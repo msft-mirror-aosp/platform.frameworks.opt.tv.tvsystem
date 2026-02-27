@@ -396,4 +396,45 @@ public class TvKeyInputManagerServiceTest {
         // Should broadcast DOWN
         verify(mCallback).onVolumeChangeEvent(VolumeEventType.DOWN, 1);
     }
+
+    @Test
+    public void testUnmuteDuringVolumeUpIsIgnored() throws Exception {
+        mKeyListener.onKeyEventActivity();
+
+        // Mute
+        Intent intentMute = new Intent(AudioManager.STREAM_MUTE_CHANGED_ACTION);
+        intentMute.putExtra(AudioManager.EXTRA_STREAM_VOLUME_MUTED, true);
+        intentMute.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
+        mVolumeReceiver.onReceive(mContext, intentMute);
+
+        mTestLooper.moveTimeForward(MUTE_DEBOUNCE_MS + 10);
+        mTestLooper.dispatchAll();
+        verify(mCallback).onVolumeChangeEvent(VolumeEventType.MUTE, 1);
+
+        // Volume UP
+        Intent intentVolUp = new Intent(AudioManager.ACTION_VOLUME_CHANGED);
+        intentVolUp.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, 0);
+        intentVolUp.putExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 1);
+        intentVolUp.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
+        mVolumeReceiver.onReceive(mContext, intentVolUp);
+
+        // Unmute during volume up
+        Intent intentUnmute = new Intent(AudioManager.STREAM_MUTE_CHANGED_ACTION);
+        intentUnmute.putExtra(AudioManager.EXTRA_STREAM_VOLUME_MUTED, false);
+        intentUnmute.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
+        mVolumeReceiver.onReceive(mContext, intentUnmute);
+
+        // More volume UP
+        Intent intentVolUp2 = new Intent(AudioManager.ACTION_VOLUME_CHANGED);
+        intentVolUp2.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, 1);
+        intentVolUp2.putExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 5);
+        intentVolUp2.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
+        mVolumeReceiver.onReceive(mContext, intentVolUp2);
+
+        mTestLooper.moveTimeForward(VALIDATION_WINDOW_MS + 10);
+        mTestLooper.dispatchAll();
+
+        verify(mCallback, never()).onVolumeChangeEvent(VolumeEventType.UNMUTE, 1);
+        verify(mCallback).onVolumeChangeEvent(VolumeEventType.UP, 5);
+    }
 }

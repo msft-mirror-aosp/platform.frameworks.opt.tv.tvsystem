@@ -91,7 +91,7 @@ public class TvKeyInputManagerService extends SystemService {
     private int mStashedVolumeCount = 0;
 
     @GuardedBy("mLock")
-    private int mLastVolumeLevel = -1;
+    private int mLastVolumeLevel;
 
     private final Handler mHandler;
     private final Runnable mBroadcastRunnable = this::broadcastVolumeEvent;
@@ -115,6 +115,10 @@ public class TvKeyInputManagerService extends SystemService {
         Log.i(TAG, "Starting TV Input Manager Service");
         mInputManager = getContext().getSystemService(InputManager.class);
         mActivityManager = getContext().getSystemService(ActivityManager.class);
+        AudioManager audioManager = getContext().getSystemService(AudioManager.class);
+        if (audioManager != null) {
+            mLastVolumeLevel = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+        }
         publishBinderService(ITvKeyInputManagerService.NAME, mBinderService);
     }
 
@@ -273,6 +277,15 @@ public class TvKeyInputManagerService extends SystemService {
                     // Ignore UNMUTE if volume is 0
                     if (type == VolumeEventType.UNMUTE && mLastVolumeLevel == 0) {
                         if (DEBUG) Log.v(TAG, "Ignoring UNMUTE event because volume is 0");
+                        return;
+                    }
+
+                    // Ignore UNMUTE if volume is being adjusted
+                    if (type == VolumeEventType.UNMUTE && (
+                            mLastVolumeDirection == VolumeEventType.UP
+                                    || mLastVolumeDirection == VolumeEventType.DOWN)
+                            && mHandler.hasCallbacks(mBroadcastRunnable)) {
+                        if (DEBUG) Log.v(TAG, "Ignoring UNMUTE event during volume adjustment");
                         return;
                     }
 
