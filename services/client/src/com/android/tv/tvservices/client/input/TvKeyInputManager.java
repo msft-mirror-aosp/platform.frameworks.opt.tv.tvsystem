@@ -43,6 +43,15 @@ public final class TvKeyInputManager {
                 }
             }
         }
+
+        @Override
+        public void onVolumeChangeEvent(int type, int count) {
+            synchronized (mLock) {
+                for (int index = 0; index < mCallbacks.size(); index++) {
+                    mCallbacks.get(index).onVolumeChangeEvent(type, count);
+                }
+            }
+        }
     }
 
     public TvKeyInputManager() {
@@ -60,10 +69,13 @@ public final class TvKeyInputManager {
      * Registers a callback to receive key event activity notifications.
      *
      * @param callback The callback interface implemented by the client. clientUid UID of the
-     *     calling application.
+     *                 calling application.
      */
     public void registerCallback(@NonNull TvKeyEventActivityCallback callback, int clientUid)
             throws RemoteException {
+        if (mService == null) {
+            throw new RemoteException("TvKeyInputManagerService not available");
+        }
         synchronized (mLock) {
             if (mCallbacks.isEmpty()) {
                 mService.registerCallback(mInternalCallback, clientUid);
@@ -81,6 +93,9 @@ public final class TvKeyInputManager {
      */
     public void unregisterCallback(@NonNull TvKeyEventActivityCallback callback)
             throws RemoteException {
+        if (mService == null) {
+            throw new RemoteException("TvKeyInputManagerService not available");
+        }
         synchronized (mLock) {
             mCallbacks.remove(callback);
             if (mCallbacks.isEmpty()) {
