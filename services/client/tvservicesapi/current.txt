@@ -3,6 +3,7 @@ package com.android.tv.tvservices.client.input {
 
   public interface TvKeyEventActivityCallback {
     method public void onKeyActivity();
+    method public void onVolumeChangeEvent(int, int);
   }
 
   public final class TvKeyInputManager {

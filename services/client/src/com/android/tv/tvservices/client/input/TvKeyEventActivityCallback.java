@@ -21,4 +21,11 @@ package com.android.tv.tvservices.client.input;
  */
 public interface TvKeyEventActivityCallback {
     public void onKeyActivity();
+
+    /**
+     * Called when volume change (UP, DOWN, MUTE) is reported
+     * @param type The direction of the change (UP, DOWN, MUTE).
+     * @param count The number of volume steps detected in the coalesced window.
+     */
+    public void onVolumeChangeEvent(int type, int count);
 }

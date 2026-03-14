@@ -43,6 +43,11 @@ public class MainActivity extends FragmentActivity {
         public void onKeyActivity() {
             Log.v(TAG, "TestCallback is called.");
         }
+
+        @Override
+        public void onVolumeChangeEvent(int type, int count) {
+            Log.v(TAG, "TestCallback is called. Type: " + type + ", Count: " + count);
+        }
     }
 
     @Override
