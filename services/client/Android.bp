@@ -20,10 +20,15 @@ java_sdk_library {
     name: "tv-services-client",
     srcs: [
         "src/**/*.java",
+        "src/**/*.aidl",
         ":tv-services.input-interface-aidl-java-source",
     ],
+    aidl: {
+        local_include_dirs: ["src"],
+    },
     api_packages: [
         "com.android.tv.tvservices.client.input",
+        "com.android.tv.tvservices.client.watchdog",
     ],
     // Use a different dir for the time being to bypass API review while it's not a SDK APIs
     api_dir: "tvservicesapi",

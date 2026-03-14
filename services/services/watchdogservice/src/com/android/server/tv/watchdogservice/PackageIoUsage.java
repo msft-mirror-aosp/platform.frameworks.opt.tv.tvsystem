@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 The Android Open Source Project
+ * Copyright 2026 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
  */
 package com.android.server.tv.watchdogservice;
 
-import android.media.tv.watchdogmanager.IoOveruseStats;
-import android.media.tv.watchdogmanager.PerStateBytes;
+import com.android.tv.tvservices.client.watchdog.IoOveruseStats;
+import com.android.tv.tvservices.client.watchdog.PerStateBytes;
 import android.util.proto.ProtoOutputStream;
 
 import com.android.internal.annotations.VisibleForTesting;

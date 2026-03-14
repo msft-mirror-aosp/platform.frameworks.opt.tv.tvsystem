@@ -33,6 +33,7 @@ android_test {
         "androidx.test.runner",
 
         "platform-test-annotations",
+        "flag-junit",
         "servicestests-utils",
     ],
 
@@ -48,5 +49,4 @@ android_test {
 
     // Required for platform tests.
     certificate: "platform",
-
 }

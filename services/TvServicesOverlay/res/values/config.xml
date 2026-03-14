@@ -22,5 +22,6 @@
        classes are instantiated in the order of the array. -->
   <string-array translatable="false" name="config_deviceSpecificSystemServices">
     <item>"com.android.server.tv.input.TvKeyInputManagerService"</item>
+    <item>"com.android.server.tv.watchdogservice.TvWatchdogService"</item>
   </string-array>
 </resources>

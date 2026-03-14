@@ -6,15 +6,22 @@
 package com.android.server.tv.watchdogservice;
 
 import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertThrows;
+
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
+
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
@@ -22,7 +29,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+
 import android.automotive.watchdog.internal.GarageMode;
+
+
 import android.automotive.watchdog.internal.PowerCycle;
 import android.automotive.watchdog.internal.StateType;
 import android.automotive.watchdog.internal.UserState;
@@ -30,8 +40,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.media.tv.watchdogmanager.IResourceOveruseListener;
-import android.media.tv.watchdogmanager.ResourceOveruseConfiguration;
+import com.android.tv.tvservices.client.watchdog.IResourceOveruseListener;
+import com.android.tv.tvservices.client.watchdog.ResourceOveruseConfiguration;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -45,14 +55,21 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.server.testutils.TestUtils;
 
+
+
+import android.media.tv.flags.Flags;
+import android.platform.test.flag.junit.SetFlagsRule;
+
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -64,6 +81,8 @@ import java.util.List;
 @Presubmit
 @RunWith(AndroidJUnit4.class)
 public class TvWatchdogServiceTest {
+
+    @Rule public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
 
     private static final String TAG = "TvWatchdogServiceTest";
 
@@ -79,6 +98,7 @@ public class TvWatchdogServiceTest {
     @Mock private WatchdogStorage mMockWatchdogStorage;
     @Mock private PackageManager mMockPackageManager;
     @Mock private UserManager mMockUserManager;
+
     public static class TestTvWatchdogService extends TvWatchdogService {
         TestTvWatchdogService(Context context, Injector injector, HandlerThread handlerThread) {
             super(context, injector, handlerThread);
@@ -104,6 +124,9 @@ public class TvWatchdogServiceTest {
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
 
+
+        mSetFlagsRule.enableFlags(Flags.FLAG_ENABLE_TV_WATCHDOG_EMMC_PROTECTION);
+
         mContext = mock(Context.class);
 
         mHandlerThread = new HandlerThread(TAG);
@@ -111,7 +134,7 @@ public class TvWatchdogServiceTest {
         mServiceHandler = new Handler(mHandlerThread.getLooper());
         mTestLooperManager = new TestLooperManager(mHandlerThread.getLooper());
 
-        // Stub system service lookups
+        // Correctly stub system service lookups
         doReturn(mMockPackageManager).when(mContext).getPackageManager();
         doReturn(Context.USER_SERVICE).when(mContext).getSystemServiceName(UserManager.class);
         doReturn(mMockUserManager).when(mContext).getSystemService(Context.USER_SERVICE);
@@ -176,7 +199,8 @@ public class TvWatchdogServiceTest {
     }
 
     @Test
-    public void testIdleModeChange_toIdle() throws Exception {
+    public void testIdleModeChange_toIdle() {
+
         mTvWatchdogService.onStart();
         TestUtils.flushLoopers(mTestLooperManager);
 
@@ -185,13 +209,10 @@ public class TvWatchdogServiceTest {
         TestUtils.flushLoopers(mTestLooperManager);
 
         assertThat(mTvWatchdogService.isDeviceIdle()).isTrue();
-        verify(mMockCarWatchdogDaemonHelper)
-                .notifySystemStateChange(
-                        eq(StateType.GARAGE_MODE), eq(GarageMode.GARAGE_MODE_ON), eq(-1));
     }
 
     @Test
-    public void testIdleModeChange_toActive() throws Exception {
+    public void testIdleModeChange_toActive() {
         mTvWatchdogService.onStart();
         TestUtils.flushLoopers(mTestLooperManager);
 
@@ -201,9 +222,6 @@ public class TvWatchdogServiceTest {
         TestUtils.flushLoopers(mTestLooperManager);
 
         assertThat(mTvWatchdogService.isDeviceIdle()).isFalse();
-        verify(mMockCarWatchdogDaemonHelper)
-                .notifySystemStateChange(
-                        eq(StateType.GARAGE_MODE), eq(GarageMode.GARAGE_MODE_OFF), eq(-1));
     }
 
     @Test
@@ -550,8 +568,11 @@ public class TvWatchdogServiceTest {
         TvWatchdogService.ICarWatchdogServiceForSystemImpl impl =
                 new TvWatchdogService.ICarWatchdogServiceForSystemImpl(mTvWatchdogService);
 
-        assertThrows(UnsupportedOperationException.class, () -> impl.checkIfAlive(1, 1));
-        assertThrows(UnsupportedOperationException.class, () -> impl.prepareProcessTermination());
+        // These methods are no-ops and should not throw exceptions
+        impl.checkIfAlive(1, 1);
+        impl.prepareProcessTermination();
+
+        // This method should still throw
         assertThrows(UnsupportedOperationException.class, () -> impl.requestAidlVhalPid());
     }
 

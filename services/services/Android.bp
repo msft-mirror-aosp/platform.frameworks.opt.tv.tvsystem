@@ -39,6 +39,7 @@ java_library {
     static_libs: [
         "android.automotive.watchdog.internal-java",
         "tv-services-atoms-java-lite",
+        "tv-services-client.impl",
     ],
 
     jarjar_rules: "jarjar-rules.txt",
