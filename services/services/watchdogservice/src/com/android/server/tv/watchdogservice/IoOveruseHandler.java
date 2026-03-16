@@ -1456,8 +1456,8 @@ public class IoOveruseHandler {
                         forgivePackagesByUserId.put(usage.userId, packagesToForgive);
                     }
                     ioUsageStatsEntries.add(
-                            new WatchdogStorage.IoUsageStatsEntry(
-                                    usage.userId, usage.genericPackageName, usage.ioUsage));
+                            new WatchdogStorage.IoUsageStatsEntry(usage.userId,
+                                    usage.genericPackageName, new PackageIoUsage(usage.ioUsage)));
                 }
                 for (String packageName : mDefaultNotKillableGenericPackages) {
                     // TODO(b/235615155): Update database when a default not killable package is
