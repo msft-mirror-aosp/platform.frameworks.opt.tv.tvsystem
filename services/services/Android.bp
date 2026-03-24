@@ -34,6 +34,7 @@ java_library {
         // references that feed into `services` during dex optimization.
         "services.impl",
         "framework",
+        "tv-resources",
     ],
 
     static_libs: [
@@ -46,6 +47,7 @@ java_library {
 
     required: [
         "TvServicesOverlay",
+        "tv-resources",
     ],
 
     optimize: {

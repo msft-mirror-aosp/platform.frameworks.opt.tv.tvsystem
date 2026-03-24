@@ -37,7 +37,7 @@ import android.text.TextUtils;
 import android.util.ArraySet;
 import android.util.StatsEvent;
 
-import com.android.internal.R;
+import com.android.tv.resources.R;
 import com.android.internal.util.FrameworkStatsLog;
 import com.android.server.LocalServices;
 import com.android.server.utils.Slogf;
@@ -334,7 +334,7 @@ public class TvWatchdogHelper implements IoOveruseHandler.IoOveruseHelper {
                 new Notification.Builder(mContext, NOTIFICATION_CHANNEL_ID)
                         .setContentTitle(title)
                         .setContentText(content)
-                        .setSmallIcon(R.drawable.stat_sys_warning)
+                        .setSmallIcon(com.android.internal.R.drawable.stat_sys_warning)
                         .setDeleteIntent(deletePendingIntent)
                         .build();
         try {

@@ -527,7 +527,7 @@ public class TvWatchdogServiceTest {
         doThrow(new SecurityException())
                 .when(mContext)
                 .enforceCallingOrSelfPermission(
-                        eq("android.permission.CONTROL_TV_WATCHDOG_CONFIG"), anyString());
+                        eq("com.android.tv.permission.CONTROL_TV_WATCHDOG_CONFIG"), anyString());
 
         TvWatchdogService.TvWatchdogServiceInternal internalService =
                 mTvWatchdogService.new TvWatchdogServiceInternal();
@@ -540,7 +540,7 @@ public class TvWatchdogServiceTest {
         doThrow(new SecurityException())
                 .when(mContext)
                 .enforceCallingOrSelfPermission(
-                        eq("android.permission.CONTROL_TV_WATCHDOG_CONFIG"), anyString());
+                        eq("com.android.tv.permission.CONTROL_TV_WATCHDOG_CONFIG"), anyString());
 
         TvWatchdogService.TvWatchdogServiceInternal internalService =
                 mTvWatchdogService.new TvWatchdogServiceInternal();
@@ -554,7 +554,7 @@ public class TvWatchdogServiceTest {
         doThrow(new SecurityException())
                 .when(mContext)
                 .enforceCallingOrSelfPermission(
-                        eq("android.permission.CONTROL_TV_WATCHDOG_CONFIG"), anyString());
+                        eq("com.android.tv.permission.CONTROL_TV_WATCHDOG_CONFIG"), anyString());
 
         TvWatchdogService.TvWatchdogServiceInternal internalService =
                 mTvWatchdogService.new TvWatchdogServiceInternal();

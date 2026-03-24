@@ -65,7 +65,7 @@ import android.util.SparseArray;
 import android.util.proto.ProtoOutputStream;
 import android.view.Display;
 
-import com.android.internal.R;
+import com.android.tv.resources.R;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.IndentingPrintWriter;
@@ -94,9 +94,9 @@ public class TvWatchdogService extends SystemService implements TvWatchdogHelper
 
     private static final String TV_WATCHDOG_SERVICE_NAME = "tv_watchdog";
     private static final String PERMISSION_CONTROL_TV_WATCHDOG_CONFIG =
-            "android.permission.CONTROL_TV_WATCHDOG_CONFIG";
+            "com.android.tv.permission.CONTROL_TV_WATCHDOG_CONFIG";
     private static final String PERMISSION_COLLECT_TV_WATCHDOG_METRICS =
-            "android.permission.COLLECT_TV_WATCHDOG_METRICS";
+            "com.android.tv.permission.COLLECT_TV_WATCHDOG_METRICS";
     private static final String HANDLER_THREAD_NAME = "TvWatchdogServiceHandler";
     private static final String WATCHDOG_DIR_NAME = "tv_watchdog";
     private static final String FALLBACK_DATA_DIR_PATH = "/data/system";
