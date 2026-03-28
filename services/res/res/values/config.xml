@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+/*
+** Copyright 2026, The Android Open Source Project
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+*/
+-->
+
+<!-- These resources are around just to allow their values to be customized
+for different hardware and product builds.  Do not translate. -->
+
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- The number of top UID I/O usage summaries to report on TV watchdog I/O usage
+         summary atom pull. -->
+    <integer name="config_tvWatchdogUidIoUsageSummaryTopCount">20</integer>
+
+    <!-- The minimum number of total bytes written to disk by the system required to
+         report the stats on TV watchdog I/O usage summary atom pull. Currently 1 GiB. -->
+    <integer name="config_tvWatchdogIoUsageSummaryMinSystemTotalWrittenBytes">1073741824</integer>
+
+    <!-- The number of days past until the current day considered by TV watchdog to
+         reset the killable state of a package back to KILLABLE_STATE_YES if the package
+         was set to prioritize performance by the user. -->
+    <integer name="config_tvWatchdogUserPackageSettingsResetDays">30</integer>
+
+    <!-- The number of days past until the current day considered by TV watchdog to
+         attribute recurring overuse to a package. -->
+    <integer name="config_tvWatchdogRecurringOverusePeriodInDays">30</integer>
+
+    <!-- The number of overuses a package has to exceed for TV watchdog to attribute
+         recurring overuse. Allow many recurring overuses (effectively disabling kill logic). -->
+    <integer name="config_tvWatchdogRecurringOveruseTimes">100</integer>
+</resources>
