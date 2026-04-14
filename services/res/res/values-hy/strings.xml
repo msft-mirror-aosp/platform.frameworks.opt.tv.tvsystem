@@ -19,5 +19,5 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="tv_watchdog_notification_channel_name" msgid="8971059672663350083">"Համակարգի ռեսուրսների մասին ծանուցումներ"</string>
     <string name="tv_watchdog_notification_title" msgid="7968616737208486478">"Ռեսուրսների գերօգտագործում"</string>
-    <string name="tv_watchdog_notification_content" msgid="966333295117219246">"«<xliff:g id="APP_NAME">%1$s</xliff:g>» հավելվածն անջատվել է, քանի որ այն չափազանց շատ ռեսուրսներ է օգտագործում։ Դուք կարող եք նորից միացնել այն՝ Կարգավորումներում բացելով հավելվածների ընտրացանկը։"</string>
+    <string name="tv_watchdog_notification_content" msgid="966333295117219246">"«<xliff:g id="APP_NAME">%1$s</xliff:g>» հավելվածն անջատվել է, քանի որ այն չափազանց շատ ռեսուրս է օգտագործում։ Դուք կարող եք նորից միացնել այն՝ Կարգավորումներում բացելով հավելվածների ընտրացանկը։"</string>
 </resources>
